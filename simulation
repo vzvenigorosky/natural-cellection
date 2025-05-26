@@ -1,0 +1,1463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Cell Simulation - Obstacles & Trait-Colors</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        canvas { background-color: #374151; /* Tailwind gray-700 for better contrast */ border-radius: 0.5rem; image-rendering: pixelated; }
+        .info-panel { background-color: #ffffff; border-radius: 0.5rem; padding: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .btn { padding: 0.5rem 1rem; border-radius: 0.375rem; font-weight: 500; transition: background-color 0.2s; cursor: pointer; }
+        .btn-primary { background-color: #3b82f6; color: white; }
+        .btn-primary:hover { background-color: #2563eb; }
+        .btn-secondary { background-color: #6b7280; color: white; }
+        .btn-secondary:hover { background-color: #4b5563; }
+        .btn-danger { background-color: #ef4444; color: white; }
+        .btn-danger:hover { background-color: #dc2626; }
+        .stat-card { background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0.5rem; padding: 0.75rem; }
+        #simulationStatus.restarting { color: #ef4444; font-weight: bold; }
+        #simulationStatus.running { color: #22c55e; }
+        #simulationStatus.paused, #simulationStatus.stopped, #simulationStatus.ready { color: #6b7280; }
+        .input-label { display: block; text-sm font-medium text-gray-700 mb-1; }
+        .input-field, .select-field { width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem; box-sizing: border-box;}
+        .details-list { list-style-type: disc; list-style-position: inside; margin-left: 0.5rem; }
+        .details-list li { margin-bottom: 0.25rem;}
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 p-4 md:p-8">
+
+    <div class="container mx-auto max-w-7xl"> 
+        <header class="mb-6 text-center">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-700">Cell Simulation: Obstacles & Evolving Trait Colors</h1>
+            <p class="text-gray-600 mt-1">Navigate new environments and adapt to survive!</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            <div class="lg:col-span-2 info-panel">
+                <canvas id="simulationCanvas" class="w-full"></canvas> 
+            </div>
+
+            <div class="space-y-4">
+                <div class="info-panel">
+                    <h2 class="text-xl font-semibold mb-3 text-gray-700">Controls & Settings</h2>
+                    <div class="grid grid-cols-2 gap-2 mb-4">
+                        <button id="startButton" class="btn btn-primary">Start</button>
+                        <button id="stopButton" class="btn btn-secondary">Stop</button>
+                        <button id="resetButton" class="btn btn-danger col-span-2">Apply Settings & Reset</button>
+                    </div>
+                    <div class="mb-3">
+                        <label for="simSpeed" class="input-label">Simulation Speed:</label>
+                        <input type="range" id="simSpeed" min="1" max="10" value="5" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3 mb-3">
+                        <div>
+                            <label for="canvasWidthInput" class="input-label">Env. Width:</label>
+                            <input type="number" id="canvasWidthInput" class="input-field" value="800" min="300" max="1600" step="50">
+                        </div>
+                        <div>
+                            <label for="canvasHeightInput" class="input-label">Env. Height:</label>
+                            <input type="number" id="canvasHeightInput" class="input-field" value="600" min="300" max="1200" step="50">
+                        </div>
+                    </div>
+                     <div class="grid grid-cols-2 gap-3 mb-3">
+                        <div>
+                            <label for="initialCellsInput" class="input-label">Initial Cells:</label>
+                            <input type="number" id="initialCellsInput" class="input-field" value="10" min="1" max="500">
+                        </div>
+                        <div>
+                            <label for="initialSugarInput" class="input-label">Initial Sugar:</label>
+                            <input type="number" id="initialSugarInput" class="input-field" value="150" min="10" max="2000">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="mapTypeInput" class="input-label">Map Type:</label>
+                        <select id="mapTypeInput" class="select-field">
+                            <option value="Open" selected>Open</option>
+                            <option value="VerticalBar">Vertical Bar</option>
+                            <option value="CircularObstacles">Circular Obstacles</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="sugarSpawnRateInput" class="input-label">Sugar Spawn Rate: <span id="sugarSpawnRateValue">0.15</span></label>
+                        <input type="range" id="sugarSpawnRateInput" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" min="0.01" max="0.5" step="0.01" value="0.15">
+                    </div>
+                     <div class="mb-3">
+                        <label for="lightZonePercentageInput" class="input-label">Light Zone (% Top): <span id="lightZonePercentageValue">50</span>%</label>
+                        <input type="range" id="lightZonePercentageInput" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" min="0" max="100" step="5" value="50">
+                    </div>
+                    <div class="mb-3">
+                        <label for="shakeFrequencyInput" class="input-label">Shake Frequency (ticks, 0=off): <span id="shakeFrequencyValue">0</span></label>
+                        <input type="range" id="shakeFrequencyInput" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" min="0" max="500" step="10" value="0">
+                    </div>
+                    <div class="mb-3">
+                        <label for="shakeMagnitudeInput" class="input-label">Shake Max Strength (pixels): <span id="shakeMagnitudeValue">5</span></label>
+                        <input type="range" id="shakeMagnitudeInput" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" min="0" max="100" step="1" value="5">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 mt-3">
+                         <div>
+                            <label for="oneTimeShakeStrengthInput" class="input-label">One-Time Shake Str:</label>
+                            <input type="number" id="oneTimeShakeStrengthInput" class="input-field" value="20" min="1" max="200">
+                        </div>
+                        <button id="oneTimeShakeButton" class="btn btn-secondary self-end">Shake Now</button>
+                    </div>
+                     <p id="simulationStatus" class="text-sm text-center mt-3 p-2 rounded-md bg-gray-100">Not started</p>
+                </div>
+
+                <div class="info-panel">
+                    <h2 class="text-xl font-semibold mb-3 text-gray-700">Global Stats & Events</h2>
+                    <div class="space-y-2">
+                        <div class="stat-card">Cells: <span id="cellCount">0</span></div>
+                        <div class="stat-card">Total Sugar Pellets: <span id="totalSugar">0</span></div>
+                        <div class="stat-card">Sugar Pellets Consumed: <span id="sugarConsumedCount">0</span></div>
+                        <div class="stat-card">Net Energy from Sugar (ATP): <span id="totalEnergyFromSugar">0</span></div>
+                        <div class="stat-card">Net Energy from Photosynthesis: <span id="totalEnergyFromPhotosynthesis">0</span></div>
+                        <div class="stat-card">Avg. Energy: <span id="avgEnergy">0</span></div>
+                        <div class="stat-card">Avg. Biomass: <span id="avgBiomass">0</span></div>
+                        <div class="stat-card">Simulation Tick: <span id="simTick">0</span></div>
+                        <div class="stat-card">Current Unique Species (Signatures): <span id="currentUniqueSpecies">0</span></div>
+                        <div class="stat-card">Total Divisions: <span id="totalDivisions">0</span></div>
+                        <div class="stat-card">Total Deaths: <span id="totalDeaths">0</span></div>
+                        <div class="stat-card">Total Attacks: <span id="totalAttacks">0</span></div>
+                        <div class="stat-card">Total Speciations (Genetic): <span id="totalSpeciations">0</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="info-panel mb-6">
+            <h2 class="text-xl font-semibold mb-3 text-gray-700">Selected Cell Info (Click on a cell)</h2>
+            <div id="selectedCellInfo" class="text-sm space-y-1 text-gray-600">
+                <p>No cell selected.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Configuration ---
+        const DEFAULTS = {
+            CANVAS_WIDTH: 800,
+            CANVAS_HEIGHT: 600,
+            CELL_MIN_RADIUS: 5,
+            CELL_MAX_RADIUS: 15,
+            INITIAL_CELLS: 10, 
+            INITIAL_SUGAR_COUNT: 150, 
+            SUGAR_RADIUS: 2.5, 
+            SUGAR_ENERGY_VALUE: 40, 
+            SUGAR_UPTAKE_EFFICIENCY_BONUS_FACTOR: 0.6, 
+            SUGAR_SPAWN_RATE: 0.15,
+            LIGHT_ZONE_PERCENTAGE: 50, 
+            SHAKE_FREQUENCY: 0, 
+            SHAKE_MAX_STRENGTH: 5, 
+            DEFAULT_MAP_TYPE: 'Open',
+
+            ENERGY_COST_PER_TICK: 0.015, 
+            ENERGY_COST_PER_PROTEIN_EXPRESSION: 0.001, 
+            ENERGY_COST_MOVE: 0.1, 
+            ENERGY_COST_ATP_GEN: 0.15, 
+            ENERGY_COST_DIVISION: 25, // Increased
+            GROWTH_ENERGY_THRESHOLD: 35, 
+            DIVISION_SIZE_THRESHOLD_FACTOR: 1.8,
+            DIVISION_ENERGY_THRESHOLD: 85, // Adjusted: (2*30) + 25
+            BASE_SUBSTITUTION_RATE: 0.005, 
+            BASE_INSERTION_RATE: 0.0005,   
+            BASE_DELETION_RATE: 0.0005,    
+            MUTATION_RESISTANCE_FACTOR: 0.2, 
+            LIGHT_MUTATION_MULTIPLIER: 1.2, 
+            GENE_DUPLICATION_RATE: 0.002, 
+            GENE_DELETION_RATE: 0.002,   
+            PROTEIN_FUNCTION_THRESHOLD: 0.2, 
+            MAX_GENE_LENGTH: 8, 
+            MIN_GENE_LENGTH: 2,  
+            INITIAL_GENES_PER_CELL: 4, 
+            MAX_CELLS: 500, 
+            INITIAL_CELL_ENERGY: 150, 
+            ENERGY_COST_ATTACK: 8,
+            ENERGY_GAIN_FROM_PREY_FACTOR: 0.6,
+            PREDATION_HIGH_ENERGY_THRESHOLD_FACTOR: 2.5, 
+            PREDATION_DIMINISHING_RETURN_FACTOR: 0.6, 
+            LIGHT_VULNERABILITY_PREY_GAIN_BONUS: 0.1, 
+            SUGAR_GAIN_FROM_PREY_FACTOR: 0.4,  
+            BIOMASS_GAIN_FROM_PREY_FACTOR: 0.3, 
+            RESOURCE_RECYCLE_EFFICIENCY_DEATH: 0.4, 
+            ATTACK_RANGE_BASE: 1, 
+            ATTACK_RANGE_AGGRESSION_BONUS: 3, 
+            MIN_ENERGY_TO_ATTACK: 20, 
+            EVENT_COUNT_UPDATE_INTERVAL: 100,
+            TRAIT_TO_COLOR_SENSITIVITY: 180, // Scales functional scores (agg, photo, sugar) to RGB
+            MIN_FUNCTION_FOR_COLOR_EXPRESSION: 0.1, // Min total of (agg, photo, sugar_uptake) to not be grey
+            PHOTOSYNTHESIS_GAIN_FACTOR: 0.3, // Lowered
+            PHOTOSYNTHESIS_DARK_COST_FACTOR: 0.02, 
+            PHOTOTAXIS_STRENGTH: 0.3,
+            GENERAL_REPULSION_STRENGTH: 0.2,
+            GENERAL_ATTRACTION_STRENGTH: 0.15,
+            SOCIAL_PERCEPTION_RADIUS_FACTOR: 4, 
+            INTERFERENCE_RADIUS_FACTOR: 2.5, 
+            MAX_NEIGHBORS_BEFORE_PENALTY: 3,  
+            PHOTOSYNTHESIS_CROWDING_REDUCTION: 0.1, 
+            ENERGY_COST_CROWDING_FACTOR: 0.003,   
+            ATP_GENERATION_SUGAR_CONVERSION_RATE: 2.5, 
+            METABOLIC_EFFICIENCY_SENSITIVITY: 0.4, 
+            OBSTACLE_COLOR: 'rgba(75, 85, 99, 0.9)', // Tailwind gray-600
+            OBSTACLE_LINE_WIDTH: 4,
+        };
+
+        // --- Amino Acid Definitions ---
+        const AMINO_ACIDS = {
+            'S': { id: 'S', name: 'Structural', contributions: { stability: 0.25 } },
+            'F': { id: 'F', name: 'SugarProcessor', contributions: { sugar_uptake_efficiency: 0.4 } }, // Blue trait
+            'E': { id: 'E', name: 'ATPGenerator', contributions: { atp_generation: 0.35 } },
+            'L': { id: 'L', name: 'MembraneLinker', contributions: { membrane_attachment: 0.4 } },
+            'M': { id: 'M', name: 'Motor', contributions: { motility: 0.3 } },
+            'X': { id: 'X', name: 'SurfaceSensor', contributions: { sensing_sugar: 0.3, membrane_attachment: 0.1 } },
+            'A': { id: 'A', name: 'Aggressor', contributions: { aggression: 0.5 } }, // Red trait
+            'K': { id: 'K', name: 'KinMarker', contributions: { /* Species gene primary AA */ } }, 
+            'Y': { id: 'Y', name: 'DNARepair', contributions: { mutation_resistance: 0.25 } }, 
+            'H': { id: 'H', name: 'HelioProtein', contributions: { photosynthesis_efficiency: 0.5 } }, // Green trait
+            'V': { id: 'V', name: 'VisibleLightSeeker', contributions: { phototaxis_positive: 0.35 } }, 
+            'N': { id: 'N', name: 'NyctoPhile', contributions: { phototaxis_negative: 0.35 } },
+            'J': { id: 'J', name: 'Jettison', contributions: { general_repulsion: 0.3 } },   
+            'C': { id: 'C', name: 'Cluster', contributions: { general_attraction: 0.25 } },
+            'T': { id: 'T', name: 'ThriftyMetabolism', contributions: { metabolic_efficiency: 0.2 } } 
+        };
+        const AA_TYPES = Object.keys(AMINO_ACIDS);
+
+        // --- Genetic Code (3-base codons) ---
+        const BASES = ['A', 'C', 'G', 'U'];
+        let GENETIC_CODE = {}; 
+
+        function initializeGeneticCode() {
+            GENETIC_CODE = {}; 
+            const allPossibleCodons = [];
+            BASES.forEach(b1 => {
+                BASES.forEach(b2 => {
+                    BASES.forEach(b3 => {
+                        allPossibleCodons.push(b1 + b2 + b3);
+                    });
+                });
+            });
+
+            for (let i = allPossibleCodons.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [allPossibleCodons[i], allPossibleCodons[j]] = [allPossibleCodons[j], allPossibleCodons[i]];
+            }
+
+            let codonIndex = 0;
+            const aaTypesToAssign = [...AA_TYPES]; 
+
+            for (const aaType of aaTypesToAssign) {
+                if (codonIndex < allPossibleCodons.length) {
+                    GENETIC_CODE[allPossibleCodons[codonIndex]] = aaType;
+                    codonIndex++;
+                } else { break; }
+            }
+            
+            while (codonIndex < allPossibleCodons.length) {
+                GENETIC_CODE[allPossibleCodons[codonIndex]] = 'STOP';
+                codonIndex++;
+            }
+
+            if (!Object.values(GENETIC_CODE).includes('STOP')) {
+                if (allPossibleCodons.length > 0) {
+                     GENETIC_CODE[allPossibleCodons[allPossibleCodons.length -1]] = 'STOP'; 
+                } else { GENETIC_CODE['UUU'] = 'STOP'; }
+            }
+        }
+        initializeGeneticCode(); 
+
+
+        // --- Utility Functions ---
+        function randomChoice(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+        function randomFloat(min, max) { return Math.random() * (max - min) + min; }
+        function distance(p1, p2) { return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2)); }
+        
+        // --- Protein Class ---
+        class Protein { 
+            constructor(aaSequence) {
+                this.aaSequence = aaSequence; 
+                this.functions = this.deriveFunctions();
+                this.id = `P-${Math.random().toString(36).substr(2, 5)}`;
+                this.aaIdSequence = this.aaSequence.map(aa => aa.id).join('-'); 
+            }
+            deriveFunctions() {
+                const potentialFunctions = {
+                    stability: 0, sugar_uptake_efficiency: 0, atp_generation: 0,
+                    membrane_attachment: 0, motility: 0, sensing_sugar: 0, aggression: 0,
+                    mutation_resistance: 0, photosynthesis_efficiency: 0,
+                    phototaxis_positive: 0, phototaxis_negative: 0,
+                    general_repulsion: 0, general_attraction: 0,
+                    metabolic_efficiency: 0 
+                };
+                this.aaSequence.forEach(aa => {
+                    if (AMINO_ACIDS[aa.id] && AMINO_ACIDS[aa.id].contributions) { // Check if contributions exist
+                        for (const funcName in AMINO_ACIDS[aa.id].contributions) {
+                            if (potentialFunctions.hasOwnProperty(funcName)) {
+                                potentialFunctions[funcName] += AMINO_ACIDS[aa.id].contributions[funcName];
+                            }
+                        }
+                    }
+                });
+                const actualFunctions = {};
+                for (const funcName in potentialFunctions) {
+                    if (potentialFunctions[funcName] >= DEFAULTS.PROTEIN_FUNCTION_THRESHOLD) {
+                        actualFunctions[funcName] = potentialFunctions[funcName];
+                    }
+                }
+                return actualFunctions;
+            }
+            getDescription() {
+                let desc = `Protein (${this.aaIdSequence}), Functions: `; 
+                const funcDesc = Object.entries(this.functions)
+                    .map(([name, efficiency]) => `${name} (eff: ${efficiency.toFixed(2)})`)
+                    .join(', ');
+                return desc + (funcDesc || 'None');
+            }
+        }
+
+        // --- Genome Class ---
+        class Genome { 
+            constructor(genes = []) { this.genes = genes; } 
+            
+            static createCodon() { 
+                return randomChoice(BASES) + randomChoice(BASES) + randomChoice(BASES);
+            }
+
+            static createGene(minCodons, maxCodons, preferredAAs = []) {
+                const geneLength = Math.floor(randomFloat(minCodons, maxCodons));
+                const geneCodons = [];
+                const stopCodons = Object.keys(GENETIC_CODE).filter(c => GENETIC_CODE[c] === 'STOP');
+                if (stopCodons.length === 0) stopCodons.push('UUU');
+
+                let availableCodingCodons;
+                if (preferredAAs.length > 0) {
+                    availableCodingCodons = Object.keys(GENETIC_CODE).filter(c => preferredAAs.includes(GENETIC_CODE[c]));
+                    if (availableCodingCodons.length === 0) { 
+                        availableCodingCodons = Object.keys(GENETIC_CODE).filter(c => GENETIC_CODE[c] !== 'STOP' && AMINO_ACIDS[GENETIC_CODE[c]]);
+                    }
+                } else {
+                    availableCodingCodons = Object.keys(GENETIC_CODE).filter(c => GENETIC_CODE[c] !== 'STOP' && AMINO_ACIDS[GENETIC_CODE[c]]);
+                }
+                if (availableCodingCodons.length === 0) availableCodingCodons.push("AAA"); 
+
+                for (let j = 0; j < geneLength; j++) { 
+                    geneCodons.push(randomChoice(availableCodingCodons));
+                }
+                geneCodons.push(randomChoice(stopCodons));
+                return geneCodons;
+            }
+
+
+            static createRandom(numGenes, minGeneLen, maxGeneLen) {
+                const genes = [];
+                genes.push(Genome.createGene(minGeneLen, maxGeneLen, ['K'])); 
+                if (numGenes > 1) genes.push(Genome.createGene(minGeneLen, maxGeneLen, ['M']));
+                if (numGenes > 2) genes.push(Genome.createGene(minGeneLen, maxGeneLen, ['X', 'F', 'E'])); 
+                if (numGenes > 3) genes.push(Genome.createGene(minGeneLen, maxGeneLen, ['F', 'E', 'T'])); 
+
+                for (let i = genes.length; i < numGenes; i++) { 
+                    genes.push(Genome.createGene(minGeneLen, maxGeneLen));
+                }
+                return new Genome(genes);
+            }
+
+            replicate(mutationResistanceScore = 0, isInLightZone = false) { 
+                let effectiveSubRate = DEFAULTS.BASE_SUBSTITUTION_RATE * (1 - Math.min(0.9, mutationResistanceScore * DEFAULTS.MUTATION_RESISTANCE_FACTOR));
+                let effectiveInsRate = DEFAULTS.BASE_INSERTION_RATE * (1 - Math.min(0.9, mutationResistanceScore * DEFAULTS.MUTATION_RESISTANCE_FACTOR));
+                let effectiveDelRate = DEFAULTS.BASE_DELETION_RATE * (1 - Math.min(0.9, mutationResistanceScore * DEFAULTS.MUTATION_RESISTANCE_FACTOR));
+
+                if (isInLightZone) {
+                    effectiveSubRate *= DEFAULTS.LIGHT_MUTATION_MULTIPLIER;
+                    effectiveInsRate *= DEFAULTS.LIGHT_MUTATION_MULTIPLIER;
+                    effectiveDelRate *= DEFAULTS.LIGHT_MUTATION_MULTIPLIER;
+                }
+
+                let newGenesArray = this.genes.map(geneCodonArray => {
+                    let baseString = geneCodonArray.slice(0, -1).join(''); 
+                    const stopCodon = geneCodonArray[geneCodonArray.length -1];
+                    let newBaseString = "";
+
+                    for (let i = 0; i < baseString.length; i++) {
+                        if (Math.random() < effectiveDelRate) {
+                            continue; 
+                        }
+                        if (Math.random() < effectiveInsRate) {
+                            newBaseString += randomChoice(BASES); 
+                        }
+                        if (Math.random() < effectiveSubRate) {
+                            newBaseString += randomChoice(BASES); 
+                        } else {
+                            newBaseString += baseString[i]; 
+                        }
+                    }
+                    
+                    const newGeneCodons = [];
+                    for (let i = 0; i < newBaseString.length; i += 3) {
+                        if (i + 3 <= newBaseString.length) {
+                            newGeneCodons.push(newBaseString.substring(i, i + 3));
+                        }
+                    }
+                    newGeneCodons.push(stopCodon); 
+                    return newGeneCodons;
+                });
+
+                if (Math.random() < DEFAULTS.GENE_DUPLICATION_RATE * this.genes.length) { 
+                    if (newGenesArray.length > 0 && newGenesArray.length < 20) { 
+                        const geneToDuplicateIndex = Math.floor(Math.random() * newGenesArray.length);
+                        newGenesArray.splice(geneToDuplicateIndex, 0, JSON.parse(JSON.stringify(newGenesArray[geneToDuplicateIndex]))); 
+                    }
+                }
+                if (newGenesArray.length > 1 && Math.random() < DEFAULTS.GENE_DELETION_RATE * this.genes.length) { 
+                    let indexToDelete = Math.floor(Math.random() * newGenesArray.length);
+                    if (indexToDelete === 0 && newGenesArray.length === 1) { 
+                    } else if (indexToDelete === 0 && newGenesArray.length > 1 && Math.random() < 0.5) { 
+                        indexToDelete = Math.floor(randomFloat(1, newGenesArray.length));
+                    }
+                     if (newGenesArray.length > 1) { 
+                        newGenesArray.splice(indexToDelete, 1);
+                     }
+                }
+                 if (newGenesArray.length === 0) { 
+                    newGenesArray.push(Genome.createSpeciesGene(DEFAULTS.MIN_GENE_LENGTH, DEFAULTS.MAX_GENE_LENGTH));
+                }
+                return new Genome(newGenesArray);
+            }
+            translateToProteins() {
+                const proteins = [];
+                this.genes.forEach(geneCodons => { 
+                    const aaSequence = [];
+                    for (const codon of geneCodons) {
+                        const aaId = GENETIC_CODE[codon];
+                        if (!aaId || aaId === 'STOP' || !AMINO_ACIDS[aaId]) break; 
+                        aaSequence.push(AMINO_ACIDS[aaId]);
+                    }
+                    if (aaSequence.length > 0) proteins.push(new Protein(aaSequence));
+                });
+                return proteins;
+            }
+            getDescription() { return this.genes.map((gene, i) => `Gene ${i}${i===0 ? '(Species)' : ''}: ${gene.join('-')}`).join('<br>'); }
+        }
+
+        // --- Cell Class ---
+        class Cell { 
+            constructor(id, x, y, genome, initialEnergy, initialInternalSugar, environment) { 
+                this.id = id;
+                this.x = x;
+                this.y = y;
+                this.radius = DEFAULTS.CELL_MIN_RADIUS;
+                this.genome = genome; 
+                this.proteins = this.genome.translateToProteins();
+                this.functionalScores = this.calculateFunctionalScores();
+                
+                if (this.proteins.length > 0 && this.proteins[0]) {
+                    this.speciesSignature = this.proteins[0].aaIdSequence; 
+                } else {
+                    this.speciesSignature = "undefined-" + Math.random().toString(16).slice(2,8); 
+                }
+                
+                this.energy = initialEnergy;
+                this.internalSugar = initialInternalSugar;
+                this.biomass = 0; 
+                this.environment = environment; 
+                
+                const rScore = this.functionalScores.aggression || 0;
+                const gScore = this.functionalScores.photosynthesis_efficiency || 0;
+                const bScore = this.functionalScores.sugar_uptake_efficiency || 0;
+
+                const totalScoreForColor = rScore + gScore + bScore;
+
+                if (totalScoreForColor < DEFAULTS.MIN_FUNCTION_FOR_COLOR_EXPRESSION) {
+                    this.color = `rgb(128, 128, 128)`; // Grey
+                } else {
+                    const rVal = Math.min(255, Math.floor(rScore * DEFAULTS.TRAIT_TO_COLOR_SENSITIVITY));
+                    const gVal = Math.min(255, Math.floor(gScore * DEFAULTS.TRAIT_TO_COLOR_SENSITIVITY));
+                    const bVal = Math.min(255, Math.floor(bScore * DEFAULTS.TRAIT_TO_COLOR_SENSITIVITY));
+                    this.color = `rgb(${rVal}, ${gVal}, ${bVal})`;
+                }
+
+
+                this.targetSugar = null;
+                this.targetCell = null; 
+                this.age = 0;
+                this.timeSinceLastSugar = 0; 
+                this.timeSinceLastAttackAttempt = 0;
+                this.currentSensingRange = 0; 
+                this.isInLightZone = false; 
+            }
+
+            calculateFunctionalScores() { 
+                const scores = {
+                    stability: 0, sugar_uptake_efficiency: 0, atp_generation: 0,
+                    membrane_attachment: 0, motility: 0, sensing_sugar: 0, aggression: 0,
+                    // red_pigment_production, etc. REMOVED as direct scores
+                    mutation_resistance: 0, photosynthesis_efficiency: 0,
+                    phototaxis_positive: 0, phototaxis_negative: 0,
+                    general_repulsion: 0, general_attraction: 0,
+                    metabolic_efficiency: 0 
+                };
+                for (let i = 0; i < this.proteins.length; i++) { 
+                    const protein = this.proteins[i];
+                    // Iterate through the functions derived by THIS protein instance
+                    for (const funcName in protein.functions) {
+                        if (scores.hasOwnProperty(funcName)) {
+                             scores[funcName] += protein.functions[funcName];
+                        }
+                    }
+                }
+                // Pigment-trait links are now implicitly handled by A, H, F AAs contributing to these scores
+                return scores;
+            }
+
+            update() { 
+                this.age++;
+                this.timeSinceLastSugar++;
+                this.timeSinceLastAttackAttempt++;
+                
+                let baseRate = DEFAULTS.ENERGY_COST_PER_TICK;
+                if (this.functionalScores.metabolic_efficiency > 0) {
+                    baseRate *= (1 - Math.min(0.8, this.functionalScores.metabolic_efficiency * DEFAULTS.METABOLIC_EFFICIENCY_SENSITIVITY));
+                }
+                let baseMetabolicCost = baseRate * (1 + (this.radius - DEFAULTS.CELL_MIN_RADIUS) / DEFAULTS.CELL_MIN_RADIUS);
+                let proteinExpressionCost = this.proteins.length * DEFAULTS.ENERGY_COST_PER_PROTEIN_EXPRESSION; 
+                
+                let neighborCount = 0;
+                const interferenceRadius = this.radius * DEFAULTS.INTERFERENCE_RADIUS_FACTOR;
+                for (const otherCell of this.environment.cells) {
+                    if (otherCell === this) continue;
+                    if (distance(this, otherCell) < interferenceRadius + otherCell.radius) { 
+                        neighborCount++;
+                    }
+                }
+
+                let currentPhotosynthesisGainFactor = 0;
+                if (this.functionalScores.photosynthesis_efficiency > 0) {
+                    currentPhotosynthesisGainFactor = this.functionalScores.photosynthesis_efficiency * DEFAULTS.PHOTOSYNTHESIS_GAIN_FACTOR;
+                }
+
+                let crowdingPenaltyCost = 0;
+                if (neighborCount > DEFAULTS.MAX_NEIGHBORS_BEFORE_PENALTY) {
+                    const excessNeighbors = neighborCount - DEFAULTS.MAX_NEIGHBORS_BEFORE_PENALTY;
+                    crowdingPenaltyCost = excessNeighbors * DEFAULTS.ENERGY_COST_CROWDING_FACTOR;
+                    if (currentPhotosynthesisGainFactor > 0) {
+                        currentPhotosynthesisGainFactor *= Math.max(0, 1 - excessNeighbors * DEFAULTS.PHOTOSYNTHESIS_CROWDING_REDUCTION);
+                    }
+                }
+                this.energy -= (baseMetabolicCost + proteinExpressionCost + crowdingPenaltyCost);
+
+
+                const lightZoneBoundary = this.environment.canvasHeight * (this.environment.lightZonePercentage / 100);
+                this.isInLightZone = this.y < lightZoneBoundary; 
+                let actualPhotosynthesisGainThisTick = 0;
+
+                if (this.isInLightZone) { 
+                    if (currentPhotosynthesisGainFactor > 0) { 
+                        actualPhotosynthesisGainThisTick = currentPhotosynthesisGainFactor;
+                        this.energy += actualPhotosynthesisGainThisTick;
+                        this.environment.totalEventCounts.totalEnergyFromPhotosynthesisValue += actualPhotosynthesisGainThisTick;
+                    }
+                } else { 
+                    if (this.functionalScores.photosynthesis_efficiency > 0) {
+                        const darkCost = this.functionalScores.photosynthesis_efficiency * DEFAULTS.PHOTOSYNTHESIS_DARK_COST_FACTOR;
+                        this.energy -= darkCost;
+                    }
+                }
+
+
+                if (this.functionalScores.sensing_sugar > 0 && (!this.targetSugar || this.timeSinceLastSugar > 50) && !this.targetCell) { 
+                    const calculatedSensingRange = this.functionalScores.sensing_sugar * 75 + this.radius + 10;
+                    this.findClosestSugar(calculatedSensingRange); 
+                    this.timeSinceLastSugar = 0;
+                }
+                
+                if (this.functionalScores.aggression > 0 && this.energy > DEFAULTS.MIN_ENERGY_TO_ATTACK && this.timeSinceLastAttackAttempt > 20) { 
+                    if (!this.targetCell || !this.environment.cells.includes(this.targetCell)) { 
+                        this.findClosestCellTarget(this.functionalScores.aggression * DEFAULTS.ATTACK_RANGE_AGGRESSION_BONUS + this.radius + DEFAULTS.ATTACK_RANGE_BASE);
+                    }
+                    if (this.targetCell && this.targetCell.speciesSignature !== this.speciesSignature) { 
+                        this.attemptAttack(); 
+                        this.timeSinceLastAttackAttempt = 0;
+                    } else if (this.targetCell && this.targetCell.speciesSignature === this.speciesSignature) {
+                        this.targetCell = null; 
+                    }
+                }
+
+                if (this.functionalScores.motility > 0) {
+                    this.move(this.functionalScores.motility); 
+                    this.energy -= DEFAULTS.ENERGY_COST_MOVE * this.functionalScores.motility;
+                }
+
+                if (this.functionalScores.atp_generation > 0 && this.internalSugar > 0) {
+                    this.generateATP(this.functionalScores.atp_generation);
+                }
+
+                if (this.energy > DEFAULTS.GROWTH_ENERGY_THRESHOLD && this.radius < DEFAULTS.CELL_MAX_RADIUS) {
+                    const growthAmount = 0.05 * (this.energy / DEFAULTS.GROWTH_ENERGY_THRESHOLD);
+                    this.radius += growthAmount;
+                    this.energy -= growthAmount * 10; 
+                    this.radius = Math.min(this.radius, DEFAULTS.CELL_MAX_RADIUS);
+                }
+
+                const divisionSizeThreshold = DEFAULTS.CELL_MIN_RADIUS * DEFAULTS.DIVISION_SIZE_THRESHOLD_FACTOR;
+                if (this.radius >= divisionSizeThreshold && this.energy > DEFAULTS.DIVISION_ENERGY_THRESHOLD &&
+                    (this.energy - DEFAULTS.ENERGY_COST_DIVISION) / 2 > DEFAULTS.ENERGY_COST_PER_TICK * 100) { 
+                    this.divide(); 
+                }
+
+                if (this.energy <= 0 || (this.functionalScores.stability < 0.05 && Math.random() < 0.02)) { 
+                    this.environment.currentIntervalEventCounts.deaths++; 
+                    this.environment.removeCell(this);
+                    this.environment.addSugarPellets(this.x, this.y, this.internalSugar * DEFAULTS.RESOURCE_RECYCLE_EFFICIENCY_DEATH + (this.energy > 0 ? this.energy : 0) * DEFAULTS.RESOURCE_RECYCLE_EFFICIENCY_DEATH / 2 + this.biomass * DEFAULTS.RESOURCE_RECYCLE_EFFICIENCY_DEATH); 
+                }
+            }
+
+            findClosestSugar(sensingRange) { /* ... (no change) ... */ 
+                this.currentSensingRange = sensingRange; 
+                let closestDist = Infinity;
+                let foundSugar = null;
+                this.environment.sugars.forEach(sugar => {
+                    const d = distance(this, sugar);
+                    if (d < this.currentSensingRange && d < closestDist) { 
+                        closestDist = d;
+                        foundSugar = sugar;
+                    }
+                });
+                this.targetSugar = foundSugar;
+                if (foundSugar) this.targetCell = null; 
+            }
+            
+            findClosestCellTarget(attackRange) { /* ... (no change) ... */ 
+                 let closestDist = Infinity;
+                let potentialTarget = null;
+                this.environment.cells.forEach(cell => {
+                    if (cell === this) return; 
+                    const d = distance(this, cell);
+                    if (d < attackRange && d < closestDist) {
+                        closestDist = d;
+                        potentialTarget = cell;
+                    }
+                });
+                this.targetCell = potentialTarget;
+                if (potentialTarget) this.targetSugar = null; 
+            }
+
+            attemptAttack() { 
+                if (!this.targetCell || !this.environment.cells.includes(this.targetCell) || this.energy < DEFAULTS.MIN_ENERGY_TO_ATTACK) {
+                    this.targetCell = null; return;
+                }
+                this.energy -= DEFAULTS.ENERGY_COST_ATTACK;
+                const actualAttackRange = this.radius + this.targetCell.radius + DEFAULTS.ATTACK_RANGE_BASE + (this.functionalScores.aggression * DEFAULTS.ATTACK_RANGE_AGGRESSION_BONUS);
+
+                if (distance(this, this.targetCell) <= actualAttackRange) {
+                    let currentEnergyGainFactor = DEFAULTS.ENERGY_GAIN_FROM_PREY_FACTOR;
+                    let currentSugarGainFactor = DEFAULTS.SUGAR_GAIN_FROM_PREY_FACTOR;
+                    let currentBiomassGainFactor = DEFAULTS.BIOMASS_GAIN_FROM_PREY_FACTOR;
+
+                    if (this.energy > DEFAULTS.INITIAL_CELL_ENERGY * DEFAULTS.PREDATION_HIGH_ENERGY_THRESHOLD_FACTOR) {
+                        currentEnergyGainFactor *= DEFAULTS.PREDATION_DIMINISHING_RETURN_FACTOR;
+                        currentSugarGainFactor *= DEFAULTS.PREDATION_DIMINISHING_RETURN_FACTOR;
+                        currentBiomassGainFactor *= DEFAULTS.PREDATION_DIMINISHING_RETURN_FACTOR;
+                    }
+                    if (this.targetCell.isInLightZone) { 
+                        currentEnergyGainFactor += DEFAULTS.LIGHT_VULNERABILITY_PREY_GAIN_BONUS;
+                    }
+
+                    const preyEnergy = this.targetCell.energy;
+                    const preySugar = this.targetCell.internalSugar;
+                    const preyBiomass = this.targetCell.biomass; 
+                    this.energy += preyEnergy * currentEnergyGainFactor;
+                    this.internalSugar += preySugar * currentSugarGainFactor;
+                    this.biomass += (preyEnergy + preySugar) * currentBiomassGainFactor + preyBiomass; 
+                    this.environment.currentIntervalEventCounts.attacks++; 
+                    this.environment.currentIntervalEventCounts.deaths++; 
+                    this.environment.removeCell(this.targetCell); 
+                    this.targetCell = null; 
+                } else { this.targetCell = null; }
+            }
+
+            move(motilityScore) { 
+                const moveSpeed = motilityScore * 0.6 + 0.1; 
+                let dx = 0, dy = 0;
+                let targetX = this.x, targetY = this.y; 
+
+                let socialDX = 0;
+                let socialDY = 0;
+                const perceptionRadius = this.radius * DEFAULTS.SOCIAL_PERCEPTION_RADIUS_FACTOR;
+                if (this.functionalScores.general_repulsion > 0 || this.functionalScores.general_attraction > 0) {
+                    this.environment.cells.forEach(otherCell => {
+                        if (otherCell === this) return;
+                        const d = distance(this, otherCell);
+                        if (d < perceptionRadius && d > 0) { 
+                            const angle = Math.atan2(otherCell.y - this.y, otherCell.x - this.x);
+                            const force = 1 / (d*d); 
+                            if (this.functionalScores.general_repulsion > 0) {
+                                socialDX -= Math.cos(angle) * force * this.functionalScores.general_repulsion * DEFAULTS.GENERAL_REPULSION_STRENGTH;
+                                socialDY -= Math.sin(angle) * force * this.functionalScores.general_repulsion * DEFAULTS.GENERAL_REPULSION_STRENGTH;
+                            }
+                            if (this.functionalScores.general_attraction > 0) {
+                                socialDX += Math.cos(angle) * force * this.functionalScores.general_attraction * DEFAULTS.GENERAL_ATTRACTION_STRENGTH;
+                                socialDY += Math.sin(angle) * force * this.functionalScores.general_attraction * DEFAULTS.GENERAL_ATTRACTION_STRENGTH;
+                            }
+                        }
+                    });
+                }
+
+
+                if (this.targetCell && this.functionalScores.aggression > 0 && this.targetCell.speciesSignature !== this.speciesSignature) { 
+                    targetX = this.targetCell.x;
+                    targetY = this.targetCell.y;
+                } else if (this.targetSugar) { 
+                    targetX = this.targetSugar.x;
+                    targetY = this.targetSugar.y;
+                } else { 
+                    targetX += randomFloat(-1, 1) * 50; 
+                    targetY += randomFloat(-1, 1) * 50;
+                }
+                
+                const lightZoneBoundary = this.environment.canvasHeight * (this.environment.lightZonePercentage / 100);
+                let phototaxisDY = 0;
+                if (this.functionalScores.phototaxis_positive > 0) {
+                    phototaxisDY -= this.functionalScores.phototaxis_positive * DEFAULTS.PHOTOTAXIS_STRENGTH; 
+                }
+                if (this.functionalScores.phototaxis_negative > 0) {
+                    phototaxisDY += this.functionalScores.phototaxis_negative * DEFAULTS.PHOTOTAXIS_STRENGTH; 
+                }
+
+                const angleToTarget = Math.atan2(targetY - this.y, targetX - this.x);
+                dx = Math.cos(angleToTarget) * moveSpeed + socialDX * moveSpeed; 
+                dy = Math.sin(angleToTarget) * moveSpeed + phototaxisDY * moveSpeed + socialDY * moveSpeed; 
+
+                const totalMoveMagnitude = Math.sqrt(dx*dx + dy*dy);
+                if (totalMoveMagnitude > moveSpeed && totalMoveMagnitude > 0) { 
+                    dx = (dx / totalMoveMagnitude) * moveSpeed;
+                    dy = (dy / totalMoveMagnitude) * moveSpeed;
+                }
+
+                let newX = this.x + dx;
+                let newY = this.y + dy;
+
+                // Obstacle collision
+                let collision = this.environment.checkCollision(newX, newY, this.radius);
+                if (collision) {
+                    // Try moving only in X
+                    let collisionX = this.environment.checkCollision(newX, this.y, this.radius);
+                    if (!collisionX) {
+                        this.x = newX;
+                        // Y remains, but still apply boundary check
+                        this.y = Math.max(this.radius, Math.min(this.y, this.environment.canvasHeight - this.radius));
+                    } else {
+                        // Try moving only in Y
+                        let collisionY = this.environment.checkCollision(this.x, newY, this.radius);
+                        if (!collisionY) {
+                            this.y = newY;
+                            // X remains, but still apply boundary check
+                            this.x = Math.max(this.radius, Math.min(this.x, this.environment.canvasWidth - this.radius));
+                        } // else, no move if both axes are blocked by an obstacle
+                    }
+                } else {
+                    this.x = newX;
+                    this.y = newY;
+                }
+                
+                this.x = Math.max(this.radius, Math.min(this.x, this.environment.canvasWidth - this.radius));
+                this.y = Math.max(this.radius, Math.min(this.y, this.environment.canvasHeight - this.radius));
+
+
+                if (this.targetSugar && distance(this, this.targetSugar) < this.radius + this.targetSugar.radius) {
+                    const sugarGain = DEFAULTS.SUGAR_ENERGY_VALUE * (1 + (this.functionalScores.sugar_uptake_efficiency || 0) * DEFAULTS.SUGAR_UPTAKE_EFFICIENCY_BONUS_FACTOR);
+                    this.environment.consumeSugar(this.targetSugar);
+                    this.internalSugar += sugarGain;
+                    this.environment.totalEventCounts.totalSugarConsumedValue += 1; 
+                    this.targetSugar = null;
+                    this.timeSinceLastSugar = 0;
+                } else if (this.targetSugar && this.currentSensingRange > 0 && distance(this, this.targetSugar) > this.currentSensingRange * 1.2) { 
+                    this.targetSugar = null; 
+                }
+            }
+
+            generateATP(atpGenScore) { 
+                const sugarToConvert = Math.min(this.internalSugar, atpGenScore * 2.5 + 0.5); 
+                if (sugarToConvert > 0) {
+                    this.internalSugar -= sugarToConvert;
+                    const energyFromATP = sugarToConvert * DEFAULTS.ATP_GENERATION_SUGAR_CONVERSION_RATE;
+                    const costOfATP = DEFAULTS.ENERGY_COST_ATP_GEN * atpGenScore;
+                    const netGain = energyFromATP - costOfATP;
+                    this.energy += netGain;
+                    this.environment.totalEventCounts.totalEnergyFromSugarValue += netGain;
+                }
+            }
+
+            divide() { 
+                this.energy -= DEFAULTS.ENERGY_COST_DIVISION; 
+                this.environment.currentIntervalEventCounts.divisions++; 
+
+                const childGenome = this.genome.replicate(this.functionalScores.mutation_resistance || 0, this.isInLightZone); 
+                const childEnergy = this.energy / 2;
+                this.energy /= 2; 
+                const childInternalSugar = this.internalSugar / 2; 
+                this.internalSugar /= 2; 
+                const childBiomass = this.biomass / 2; 
+                this.biomass /= 2;
+                const originalRadius = this.radius; 
+                this.radius = DEFAULTS.CELL_MIN_RADIUS; 
+
+                const angle = Math.random() * 2 * Math.PI;
+                const offsetDist = originalRadius + DEFAULTS.CELL_MIN_RADIUS + 2; 
+                let childX = this.x + Math.cos(angle) * offsetDist;
+                let childY = this.y + Math.sin(angle) * offsetDist;
+
+                // Ensure child spawns in a valid location (not inside an obstacle)
+                let attempts = 0;
+                while (this.environment.checkCollision(childX, childY, DEFAULTS.CELL_MIN_RADIUS) && attempts < 20) {
+                    const newAngle = Math.random() * 2 * Math.PI;
+                    childX = this.x + Math.cos(newAngle) * offsetDist;
+                    childY = this.y + Math.sin(newAngle) * offsetDist;
+                    attempts++;
+                }
+                if (attempts >= 20) { // Could not find a spot, place near parent carefully
+                    childX = this.x + (Math.random() < 0.5 ? -offsetDist : offsetDist) * 0.5;
+                    childY = this.y + (Math.random() < 0.5 ? -offsetDist : offsetDist) * 0.5;
+                }
+
+
+                childX = Math.max(DEFAULTS.CELL_MIN_RADIUS, Math.min(childX, this.environment.canvasWidth - DEFAULTS.CELL_MIN_RADIUS));
+                childY = Math.max(DEFAULTS.CELL_MIN_RADIUS, Math.min(childY, this.environment.canvasHeight - DEFAULTS.CELL_MIN_RADIUS));
+
+                const childCell = this.environment.addCell( 
+                    childX, childY, childGenome, childEnergy, childInternalSugar, childBiomass
+                );
+
+                if (childCell && childCell.speciesSignature !== this.speciesSignature) {
+                    this.environment.currentIntervalEventCounts.speciations++;
+                }
+            }
+
+            draw(ctx) { 
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                let finalColor = this.color; 
+                if (this.functionalScores.aggression > 0.1) { 
+                    const rgbMatch = this.color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+                    if (rgbMatch) {
+                        let r = parseInt(rgbMatch[1]);
+                        let g = parseInt(rgbMatch[2]);
+                        let b = parseInt(rgbMatch[3]);
+                        r = Math.min(255, r + Math.floor(this.functionalScores.aggression * 20));
+                        g = Math.max(0, g - Math.floor(this.functionalScores.aggression * 10));
+                        b = Math.max(0, b - Math.floor(this.functionalScores.aggression * 10));
+                        finalColor = `rgb(${r},${g},${b})`;
+                    }
+                }
+                ctx.fillStyle = finalColor;
+                ctx.fill();
+
+                if (this.functionalScores.membrane_attachment > 0) {
+                    ctx.strokeStyle = `rgba(0,0,0,${Math.min(0.8, this.functionalScores.membrane_attachment * 0.5)})`;
+                    ctx.lineWidth = Math.max(1, this.functionalScores.membrane_attachment * 1.5);
+                    ctx.stroke();
+                }
+                if (this.environment.selectedCell === this) {
+                    ctx.strokeStyle = '#FFFF00'; ctx.lineWidth = 3; ctx.stroke();
+                }
+            }
+
+            getInfo() { 
+                let info = `<p><b>Cell ID:</b> ${this.id}</p>`;
+                info += `<p><b>Species Signature:</b> <span style="font-family: monospace; font-size: 0.8em; word-break: break-all;">${this.speciesSignature}</span></p>`;
+                info += `<p><b>Color (RGB):</b> <span style="display:inline-block; width:12px; height:12px; background-color:${this.color}; border:1px solid #ccc; margin-right: 4px;"></span> ${this.color}</p>`;
+                
+                let baseRate = DEFAULTS.ENERGY_COST_PER_TICK;
+                if (this.functionalScores.metabolic_efficiency > 0) {
+                    baseRate *= (1 - Math.min(0.8, this.functionalScores.metabolic_efficiency * DEFAULTS.METABOLIC_EFFICIENCY_SENSITIVITY));
+                }
+                const baseMetabolicCost = baseRate * (1 + (this.radius - DEFAULTS.CELL_MIN_RADIUS) / DEFAULTS.CELL_MIN_RADIUS);
+                const proteinExpressionCost = this.proteins.length * DEFAULTS.ENERGY_COST_PER_PROTEIN_EXPRESSION;
+                info += `<p><b>Base Metabolic Cost/tick:</b> ${baseMetabolicCost.toFixed(3)}</p>`;
+                info += `<p><b>Protein Expression Cost/tick:</b> ${proteinExpressionCost.toFixed(3)}</p>`;
+                info += `<p><b>Energy from 1 Sugar Pellet (base):</b> ${DEFAULTS.SUGAR_ENERGY_VALUE}</p>`;
+                const uptakeBonusFactor = (1 + (this.functionalScores.sugar_uptake_efficiency || 0) * DEFAULTS.SUGAR_UPTAKE_EFFICIENCY_BONUS_FACTOR);
+                info += `<p><b>Sugar Uptake Bonus Factor:</b> ${uptakeBonusFactor.toFixed(2)} (Actual internal sugar gained: ${(DEFAULTS.SUGAR_ENERGY_VALUE * uptakeBonusFactor).toFixed(1)})</p>`;
+                info += `<p><b>ATP Conversion Rate (per sugar unit):</b> ${DEFAULTS.ATP_GENERATION_SUGAR_CONVERSION_RATE}</p>`;
+                const atpGenActivationCost = DEFAULTS.ENERGY_COST_ATP_GEN * (this.functionalScores.atp_generation || 0.1);
+                info += `<p><b>ATP Generation Cost (per activation):</b> ${atpGenActivationCost.toFixed(3)}</p>`;
+                
+                let potentialPhotoGain = (this.functionalScores.photosynthesis_efficiency || 0) * DEFAULTS.PHOTOSYNTHESIS_GAIN_FACTOR;
+                 let neighborCount = 0;
+                const interferenceRadius = this.radius * DEFAULTS.INTERFERENCE_RADIUS_FACTOR;
+                for (const otherCell of this.environment.cells) {
+                    if (otherCell === this) continue;
+                    if (distance(this, otherCell) < interferenceRadius + otherCell.radius) neighborCount++;
+                }
+                if (neighborCount > DEFAULTS.MAX_NEIGHBORS_BEFORE_PENALTY) {
+                    const excessNeighbors = neighborCount - DEFAULTS.MAX_NEIGHBORS_BEFORE_PENALTY;
+                    potentialPhotoGain *= Math.max(0, 1 - excessNeighbors * DEFAULTS.PHOTOSYNTHESIS_CROWDING_REDUCTION);
+                }
+                info += `<p><b>Potential Photosynthesis/tick (if light, current crowding):</b> ${this.isInLightZone ? potentialPhotoGain.toFixed(3) : '0 (in dark)'}</p>`;
+
+
+                info += `<p><b>Position:</b> (${this.x.toFixed(1)}, ${this.y.toFixed(1)})</p>`;
+                info += `<p><b>Radius:</b> ${this.radius.toFixed(1)}</p>`;
+                info += `<p><b>Energy:</b> ${this.energy.toFixed(1)}</p>`;
+                info += `<p><b>Internal Sugar:</b> ${this.internalSugar.toFixed(1)}</p>`;
+                info += `<p><b>Biomass:</b> ${this.biomass.toFixed(1)}</p>`;
+                info += `<p><b>Age:</b> ${this.age} ticks</p>`;
+                info += `<p><b>Functional Scores:</b></p><ul class="details-list">`;
+                for(const func in this.functionalScores) {
+                    if (this.functionalScores[func] > 0) {
+                        info += `<li>${func}: ${this.functionalScores[func].toFixed(2)}</li>`;
+                    }
+                }
+                info += `</ul>`;
+                info += `<p class="mt-1"><b>Genome (${this.genome.genes.length} genes):</b></p><div class="p-1 bg-gray-500 rounded text-xs overflow-auto max-h-20">${this.genome.getDescription()}</div>`;
+                info += `<p class="mt-1"><b>Proteins (${this.proteins.length}):</b></p><ul class="details-list text-xs overflow-auto max-h-28">`;
+                this.proteins.forEach(p => info += `<li>${p.getDescription()}</li>`);
+                info += `</ul>`;
+                return info;
+            }
+        }
+
+        // --- Simulation Class ---
+        class Simulation {
+            constructor(canvasId) {
+                this.canvas = document.getElementById(canvasId);
+                this.ctx = this.canvas.getContext('2d');
+                this.cells = [];
+                this.sugars = [];
+                this.obstacles = []; 
+                this.mapType = DEFAULTS.DEFAULT_MAP_TYPE; 
+
+                this.tickCount = 0;
+                this.isRunning = false;
+                this.animationFrameId = null;
+                this.selectedCell = null;
+                this.simSpeed = 5;
+                this.restarting = false; 
+                this.statusElement = document.getElementById('simulationStatus');
+                
+                this.canvasWidthInput = document.getElementById('canvasWidthInput');
+                this.canvasHeightInput = document.getElementById('canvasHeightInput');
+                this.initialCellsInput = document.getElementById('initialCellsInput');
+                this.initialSugarInput = document.getElementById('initialSugarInput');
+                this.mapTypeInput = document.getElementById('mapTypeInput'); 
+                this.sugarSpawnRateInput = document.getElementById('sugarSpawnRateInput');
+                this.sugarSpawnRateValueDisplay = document.getElementById('sugarSpawnRateValue');
+                this.lightZonePercentageInput = document.getElementById('lightZonePercentageInput');
+                this.lightZonePercentageValueDisplay = document.getElementById('lightZonePercentageValue');
+                this.shakeFrequencyInput = document.getElementById('shakeFrequencyInput'); 
+                this.shakeFrequencyValueDisplay = document.getElementById('shakeFrequencyValue'); 
+                this.shakeMagnitudeInput = document.getElementById('shakeMagnitudeInput');  
+                this.shakeMagnitudeValueDisplay = document.getElementById('shakeMagnitudeValue'); 
+                this.oneTimeShakeStrengthInput = document.getElementById('oneTimeShakeStrengthInput'); 
+                this.oneTimeShakeButton = document.getElementById('oneTimeShakeButton'); 
+
+
+                this.canvasWidth = DEFAULTS.CANVAS_WIDTH;
+                this.canvasHeight = DEFAULTS.CANVAS_HEIGHT;
+                this.sugarSpawnRate = DEFAULTS.SUGAR_SPAWN_RATE;
+                this.lightZonePercentage = DEFAULTS.LIGHT_ZONE_PERCENTAGE;
+                this.shakeFrequency = DEFAULTS.SHAKE_FREQUENCY; 
+                this.shakeMaxStrength = DEFAULTS.SHAKE_MAX_STRENGTH; 
+
+
+                this.currentIntervalEventCounts = { divisions: 0, deaths: 0, attacks: 0, speciations: 0 };
+                this.totalEventCounts = { 
+                    divisions: 0, deaths: 0, attacks: 0, speciations: 0,
+                    totalSugarConsumedValue: 0, 
+                    totalEnergyFromSugarValue: 0, 
+                    totalEnergyFromPhotosynthesisValue: 0 
+                };
+                
+                if (this.canvas) {
+                    this.canvas.addEventListener('click', (event) => this.handleCanvasClick(event));
+                } else { console.error("Error: simulationCanvas element not found!"); }
+
+                if (this.sugarSpawnRateInput) {
+                    this.sugarSpawnRateInput.addEventListener('input', (e) => {
+                        this.sugarSpawnRate = parseFloat(e.target.value);
+                        if(this.sugarSpawnRateValueDisplay) this.sugarSpawnRateValueDisplay.textContent = this.sugarSpawnRate.toFixed(2);
+                    });
+                } else { console.error("Error: sugarSpawnRateInput element not found!"); }
+
+                if (this.lightZonePercentageInput) {
+                    this.lightZonePercentageInput.addEventListener('input', (e) => {
+                        this.lightZonePercentage = parseInt(e.target.value);
+                        if(this.lightZonePercentageValueDisplay) this.lightZonePercentageValueDisplay.textContent = this.lightZonePercentage;
+                        this.draw(); 
+                    });
+                } else { console.error("Error: lightZonePercentageInput element not found!"); }
+                
+                if (this.shakeFrequencyInput) { 
+                     this.shakeFrequencyInput.addEventListener('input', (e) => {
+                        this.shakeFrequency = parseInt(e.target.value);
+                        if(this.shakeFrequencyValueDisplay) this.shakeFrequencyValueDisplay.textContent = this.shakeFrequency;
+                    });
+                } else { console.error("Error: shakeFrequencyInput element not found!"); }
+
+                if (this.shakeMagnitudeInput) {
+                    this.shakeMagnitudeInput.addEventListener('input', (e) => { 
+                        this.shakeMaxStrength = parseInt(e.target.value);
+                        if(this.shakeMagnitudeValueDisplay) this.shakeMagnitudeValueDisplay.textContent = this.shakeMaxStrength;
+                    });
+                } else { console.error("Error: shakeMagnitudeInput element not found!"); }
+                
+                if (this.oneTimeShakeButton) { 
+                    this.oneTimeShakeButton.addEventListener('click', () => {
+                        const strength = parseInt(this.oneTimeShakeStrengthInput.value) || 20;
+                        this.applyManualShake(strength);
+                    });
+                } else {
+                    console.error("Error: oneTimeShakeButton element not found.");
+                }
+                this.updateStatus("Not started", "stopped");
+            }
+
+            updateStatus(message, type = "running") { 
+                if (this.statusElement) {
+                    this.statusElement.textContent = message;
+                    this.statusElement.className = `text-sm text-center mt-3 p-2 rounded-md bg-gray-100 ${type}`; 
+                }
+            }
+            
+            applySettings() {
+                this.canvasWidth = parseInt(this.canvasWidthInput.value) || DEFAULTS.CANVAS_WIDTH;
+                this.canvasHeight = parseInt(this.canvasHeightInput.value) || DEFAULTS.CANVAS_HEIGHT;
+                this.sugarSpawnRate = parseFloat(this.sugarSpawnRateInput.value) || DEFAULTS.SUGAR_SPAWN_RATE;
+                this.lightZonePercentage = parseInt(this.lightZonePercentageInput.value); 
+                if (isNaN(this.lightZonePercentage)) this.lightZonePercentage = DEFAULTS.LIGHT_ZONE_PERCENTAGE;
+                
+                if (this.shakeFrequencyInput) this.shakeFrequency = parseInt(this.shakeFrequencyInput.value);
+                else this.shakeFrequency = DEFAULTS.SHAKE_FREQUENCY;
+                if (isNaN(this.shakeFrequency)) this.shakeFrequency = DEFAULTS.SHAKE_FREQUENCY;
+
+                if (this.shakeMagnitudeInput) this.shakeMaxStrength = parseInt(this.shakeMagnitudeInput.value);
+                else this.shakeMaxStrength = DEFAULTS.SHAKE_MAX_STRENGTH;
+                if (isNaN(this.shakeMaxStrength)) this.shakeMaxStrength = DEFAULTS.SHAKE_MAX_STRENGTH;
+                
+                if(this.mapTypeInput) this.mapType = this.mapTypeInput.value;
+                else this.mapType = DEFAULTS.DEFAULT_MAP_TYPE;
+
+
+                this.canvas.width = this.canvasWidth;
+                this.canvas.height = this.canvasHeight;
+
+                if(this.canvasWidthInput) this.canvasWidthInput.value = this.canvasWidth;
+                if(this.canvasHeightInput) this.canvasHeightInput.value = this.canvasHeight;
+                if(this.sugarSpawnRateInput) this.sugarSpawnRateInput.value = this.sugarSpawnRate;
+                if(this.sugarSpawnRateValueDisplay) this.sugarSpawnRateValueDisplay.textContent = this.sugarSpawnRate.toFixed(2);
+                if(this.lightZonePercentageInput) this.lightZonePercentageInput.value = this.lightZonePercentage;
+                if(this.lightZonePercentageValueDisplay) this.lightZonePercentageValueDisplay.textContent = this.lightZonePercentage;
+                
+                if(this.shakeFrequencyInput) this.shakeFrequencyInput.value = this.shakeFrequency;
+                if(this.shakeFrequencyValueDisplay) this.shakeFrequencyValueDisplay.textContent = this.shakeFrequency;
+                if(this.shakeMagnitudeInput) this.shakeMagnitudeInput.value = this.shakeMaxStrength; 
+                if(this.shakeMagnitudeValueDisplay) this.shakeMagnitudeValueDisplay.textContent = this.shakeMaxStrength;
+                if(this.mapTypeInput) this.mapTypeInput.value = this.mapType;
+            }
+            
+            applyManualShake(strength) {
+                if (!this.isRunning && this.cells.length === 0) return; 
+                this.cells.forEach(cell => {
+                    const shakeAmount = randomFloat(-strength, strength);
+                    cell.y += shakeAmount;
+                    cell.y = Math.max(cell.radius, Math.min(cell.y, this.canvasHeight - cell.radius));
+                });
+                if (!this.isRunning) this.draw(); 
+            }
+
+            defineObstacles() {
+                this.obstacles = [];
+                const w = this.canvasWidth;
+                const h = this.canvasHeight;
+
+                if (this.mapType === 'VerticalBar') {
+                    const barWidth = Math.max(20, w * 0.025); // Ensure bar is visible
+                    const gapSize = Math.max(30, h * 0.1); 
+                    this.obstacles.push({ type: 'rect', x: w/2 - barWidth/2, y: gapSize, width: barWidth, height: h - 2 * gapSize, id: 'obs-bar-main' });
+                } else if (this.mapType === 'CircularObstacles') {
+                    const numCircles = 3;
+                    const maxRadius = Math.min(w,h) / 4;
+                    const minRadius = Math.min(w,h) / 8;
+                    for (let i = 0; i < numCircles; i++) {
+                        const r = randomFloat(minRadius, maxRadius);
+                        const x = randomFloat(r + 20, w - r - 20); // Add padding from edges
+                        const y = randomFloat(r + 20, h - r - 20);
+                        const openingAngleSize = Math.PI / 3; // 60 degree opening
+                        const wallStartAngle = randomFloat(0, Math.PI * 2);
+                        const wallEndAngle = (wallStartAngle + (Math.PI * 2 - openingAngleSize)) % (2 * Math.PI) ;
+                        this.obstacles.push({ type: 'arc', x, y, radius: r, wallStartAngle, wallEndAngle, openingAngleSize, isWall: true, id: `obs-circle-${i}` });
+                    }
+                }
+            }
+
+            checkCollision(x, y, radius) {
+                for (const obs of this.obstacles) {
+                    if (obs.type === 'rect') {
+                        if (x + radius > obs.x && x - radius < obs.x + obs.width &&
+                            y + radius > obs.y && y - radius < obs.y + obs.height) {
+                            return true; 
+                        }
+                    } else if (obs.type === 'arc' && obs.isWall) {
+                        const dxCellToArcCenter = x - obs.x;
+                        const dyCellToArcCenter = y - obs.y;
+                        const distCellToArcCenter = Math.sqrt(dxCellToArcCenter * dxCellToArcCenter + dyCellToArcCenter * dyCellToArcCenter);
+            
+                        if (Math.abs(distCellToArcCenter - obs.radius) < radius + DEFAULTS.OBSTACLE_LINE_WIDTH / 2) {
+                            let angleCellToArcCenter = Math.atan2(dyCellToArcCenter, dxCellToArcCenter);
+                            if (angleCellToArcCenter < 0) angleCellToArcCenter += 2 * Math.PI; 
+            
+                            let wallStart = obs.wallStartAngle;
+                            let wallEnd = obs.wallEndAngle; // This is the end of the wall segment
+            
+                            // The opening is from wallEnd to wallStart (going counter-clockwise for the opening)
+                            let openingStart = wallEnd;
+                            let openingEnd = (wallStart + 2 * Math.PI) % (2*Math.PI); // Ensure wallStart is effectively "after" wallEnd for opening check
+
+                            let isInOpening = false;
+                            if (openingStart <= openingEnd) { // Normal case for opening
+                                if (angleCellToArcCenter >= openingStart && angleCellToArcCenter <= openingEnd) {
+                                    isInOpening = true;
+                                }
+                            } else { // Opening crosses the 0-radian line
+                                if (angleCellToArcCenter >= openingStart || angleCellToArcCenter <= openingEnd) {
+                                    isInOpening = true;
+                                }
+                            }
+                            if (!isInOpening) return true; // Collides if at wall radius AND not in opening
+                        }
+                    }
+                }
+                return false;
+            }
+
+
+            init() {
+                this.applySettings(); 
+                this.defineObstacles(); 
+                this.cells = [];
+                this.sugars = [];
+                this.tickCount = 0;
+                this.selectedCell = null;
+                this.restarting = false;
+                this.currentIntervalEventCounts = { divisions: 0, deaths: 0, attacks: 0, speciations: 0 };
+                this.totalEventCounts = { 
+                    divisions: 0, deaths: 0, attacks: 0, speciations: 0,
+                    totalSugarConsumedValue: 0, 
+                    totalEnergyFromSugarValue: 0, 
+                    totalEnergyFromPhotosynthesisValue: 0 
+                };
+                
+                const numInitialCells = parseInt(this.initialCellsInput.value) || DEFAULTS.INITIAL_CELLS;
+                const numInitialSugar = parseInt(this.initialSugarInput.value) || DEFAULTS.INITIAL_SUGAR_COUNT;
+                
+                this.initialCellsInput.value = numInitialCells; 
+                this.initialSugarInput.value = numInitialSugar;
+
+                for (let i = 0; i < numInitialCells; i++) {
+                    let cellX, cellY, attempts = 0;
+                    do {
+                        cellX = randomFloat(DEFAULTS.CELL_MAX_RADIUS, this.canvasWidth - DEFAULTS.CELL_MAX_RADIUS);
+                        cellY = randomFloat(DEFAULTS.CELL_MAX_RADIUS, this.canvasHeight - DEFAULTS.CELL_MAX_RADIUS);
+                        attempts++;
+                    } while (this.checkCollision(cellX, cellY, DEFAULTS.CELL_MAX_RADIUS) && attempts < 100); 
+
+                    const genome = Genome.createRandom(DEFAULTS.INITIAL_GENES_PER_CELL, DEFAULTS.MIN_GENE_LENGTH, DEFAULTS.MAX_GENE_LENGTH);
+                    this.addCell(cellX, cellY, genome, DEFAULTS.INITIAL_CELL_ENERGY, 0, 0); 
+                }
+
+                for (let i = 0; i < numInitialSugar; i++) { this.spawnSugar(); }
+                this.updateStats();
+                this.updateSelectedCellInfo(); 
+                this.draw();
+                this.updateStatus("Ready to start", "ready");
+            }
+            
+            spawnSugar() { 
+                let sugarX, sugarY, attempts = 0;
+                 do {
+                    sugarX = randomFloat(DEFAULTS.SUGAR_RADIUS, this.canvasWidth - DEFAULTS.SUGAR_RADIUS);
+                    sugarY = randomFloat(DEFAULTS.SUGAR_RADIUS, this.canvasHeight - DEFAULTS.SUGAR_RADIUS);
+                    attempts++;
+                } while (this.checkCollision(sugarX, sugarY, DEFAULTS.SUGAR_RADIUS) && attempts < 100);
+
+                this.sugars.push({ x: sugarX, y: sugarY, radius: DEFAULTS.SUGAR_RADIUS, id: `S-${Math.random().toString(36).substr(2,5)}` });
+            }
+            
+            addSugarPellets(x, y, amountFromDeath) { 
+                 if (amountFromDeath > 0) {
+                    const numPellets = Math.ceil(amountFromDeath / (DEFAULTS.SUGAR_ENERGY_VALUE / 3)); 
+                    for(let i=0; i<numPellets; i++) {
+                        const sx = Math.max(DEFAULTS.SUGAR_RADIUS, Math.min(x + randomFloat(-10,10), this.canvasWidth - DEFAULTS.SUGAR_RADIUS));
+                        const sy = Math.max(DEFAULTS.SUGAR_RADIUS, Math.min(y + randomFloat(-10,10), this.canvasHeight - DEFAULTS.SUGAR_RADIUS));
+                        if(!this.checkCollision(sx, sy, DEFAULTS.SUGAR_RADIUS * 0.8)) { 
+                           this.sugars.push({ x: sx, y: sy, radius: DEFAULTS.SUGAR_RADIUS * 0.8, id: `DS-${Math.random().toString(36).substr(2,5)}` }); 
+                        }
+                    }
+                }
+            }
+
+            consumeSugar(sugarInstance) { this.sugars = this.sugars.filter(s => s !== sugarInstance); }
+
+            addCell(x, y, genome, energy, internalSugar = 0, biomass = 0) { 
+                if (this.cells.length < DEFAULTS.MAX_CELLS) {
+                    const cellId = `C-${this.tickCount}-${Math.random().toString(36).substr(2, 4)}`;
+                    const newCell = new Cell(cellId, x, y, genome, energy, internalSugar, this); 
+                    newCell.biomass = biomass; 
+                    this.cells.push(newCell);
+                    return newCell;
+                }
+                return null;
+            }
+
+            removeCell(cellInstance) { 
+                this.cells = this.cells.filter(c => c !== cellInstance);
+                if (this.selectedCell === cellInstance) this.selectedCell = null;
+            }
+
+            handleCanvasClick(event) { 
+                const rect = this.canvas.getBoundingClientRect();
+                const scaleX = this.canvas.width / rect.width; 
+                const scaleY = this.canvas.height / rect.height; 
+                const clickX = (event.clientX - rect.left) * scaleX;
+                const clickY = (event.clientY - rect.top) * scaleY;
+                let clickedCell = null;
+                for (let i = this.cells.length - 1; i >= 0; i--) {
+                    const cell = this.cells[i];
+                    if (distance({x: clickX, y: clickY}, cell) < cell.radius) {
+                        clickedCell = cell; break;
+                    }
+                }
+                if (this.selectedCell !== clickedCell) { 
+                    this.selectedCell = clickedCell; this.updateSelectedCellInfo(); this.draw(); 
+                } else if (clickedCell === null && this.selectedCell !== null) { 
+                    this.selectedCell = null; this.updateSelectedCellInfo(); this.draw();
+                }
+            }
+
+            updateSelectedCellInfo() { 
+                const infoDiv = document.getElementById('selectedCellInfo');
+                if (!infoDiv) return;
+                if (this.selectedCell) infoDiv.innerHTML = this.selectedCell.getInfo();
+                else infoDiv.innerHTML = '<p>No cell selected. Click on a cell in the simulation.</p>';
+            }
+
+            step() { 
+                if (!this.isRunning) return;
+                this.tickCount++;
+
+                if (this.shakeFrequency > 0 && this.tickCount % this.shakeFrequency === 0) {
+                    this.cells.forEach(cell => {
+                        const shakeAmount = randomFloat(-this.shakeMaxStrength, this.shakeMaxStrength); 
+                        cell.y += shakeAmount;
+                        cell.y = Math.max(cell.radius, Math.min(cell.y, this.canvasHeight - cell.radius));
+                    });
+                }
+
+
+                for (let i = this.cells.length - 1; i >= 0; i--) {
+                    if(this.cells[i]) this.cells[i].update();
+                }
+
+                if (Math.random() < this.sugarSpawnRate && this.sugars.length < (parseInt(this.initialSugarInput.value) || DEFAULTS.INITIAL_SUGAR_COUNT) * 1.5) { 
+                    this.spawnSugar();
+                }
+
+                if (this.tickCount % DEFAULTS.EVENT_COUNT_UPDATE_INTERVAL === 0) {
+                    this.totalEventCounts.divisions += this.currentIntervalEventCounts.divisions;
+                    this.totalEventCounts.deaths += this.currentIntervalEventCounts.deaths;
+                    this.totalEventCounts.attacks += this.currentIntervalEventCounts.attacks;
+                    this.totalEventCounts.speciations += this.currentIntervalEventCounts.speciations; 
+                    this.currentIntervalEventCounts = { divisions: 0, deaths: 0, attacks: 0, speciations: 0 }; 
+                }
+                
+                this.updateStats(); 
+
+                if (this.selectedCell && !this.cells.includes(this.selectedCell)) this.selectedCell = null;
+                this.updateSelectedCellInfo(); 
+            }
+
+            draw() { 
+                this.ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight); 
+
+                const lightZoneHeight = this.canvasHeight * (this.lightZonePercentage / 100);
+                if (lightZoneHeight > 0) {
+                    this.ctx.fillStyle = 'rgba(255, 255, 230, 0.25)'; // Brighter light yellow
+                    this.ctx.fillRect(0, 0, this.canvasWidth, lightZoneHeight);
+                }
+                
+                this.ctx.strokeStyle = DEFAULTS.OBSTACLE_COLOR; 
+                this.ctx.fillStyle = DEFAULTS.OBSTACLE_COLOR;
+                this.ctx.lineWidth = DEFAULTS.OBSTACLE_LINE_WIDTH;
+                this.obstacles.forEach(obs => {
+                    if (obs.type === 'rect') {
+                        this.ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+                    } else if (obs.type === 'arc') {
+                        this.ctx.beginPath();
+                        this.ctx.arc(obs.x, obs.y, obs.radius, obs.wallStartAngle, obs.wallEndAngle);
+                        this.ctx.stroke(); 
+                    }
+                });
+
+
+                this.ctx.fillStyle = 'rgba(60, 179, 113, 0.7)'; 
+                this.sugars.forEach(sugar => {
+                    this.ctx.beginPath();
+                    this.ctx.arc(sugar.x, sugar.y, sugar.radius, 0, Math.PI * 2);
+                    this.ctx.fill();
+                });
+                this.cells.forEach(cell => cell.draw(this.ctx));
+            }
+
+            loop() { 
+                for(let i = 0; i < this.simSpeed; i++) {
+                    if (!this.isRunning) break; 
+                    this.step();
+                }
+                this.draw();
+                if (this.isRunning && this.cells.length === 0 && this.tickCount > 0 && !this.restarting) {
+                    this.restarting = true; this.stop(); 
+                    this.updateStatus(`All cells died (tick ${this.tickCount}). Restarting...`, "restarting");
+                    setTimeout(() => { this.init(); this.start(); }, 1000); 
+                    return; 
+                }
+                if (this.isRunning) this.animationFrameId = requestAnimationFrame(() => this.loop());
+            }
+
+            start() { 
+                if (!this.isRunning) {
+                    this.isRunning = true; this.restarting = false; 
+                    this.updateStatus("Running", "running"); this.loop();
+                }
+            }
+            stop() { 
+                this.isRunning = false;
+                if (this.animationFrameId) { cancelAnimationFrame(this.animationFrameId); this.animationFrameId = null; }
+                if (!this.restarting) { 
+                    if (this.cells.length > 0) this.updateStatus("Paused", "paused");
+                    else if (this.tickCount > 0) this.updateStatus("Stopped (No cells)", "stopped");
+                    else this.updateStatus("Ready", "ready"); 
+                }
+            }
+            reset() { this.stop(); this.init(); } 
+
+            updateStats() { 
+                const cellCountEl = document.getElementById('cellCount');
+                if (cellCountEl) cellCountEl.textContent = this.cells.length;
+                else console.error("Error: 'cellCount' element not found in updateStats.");
+
+                const totalSugarEl = document.getElementById('totalSugar');
+                if (totalSugarEl) totalSugarEl.textContent = this.sugars.length;
+                else console.error("Error: 'totalSugar' element not found in updateStats.");
+                
+                const simTickEl = document.getElementById('simTick');
+                if (simTickEl) simTickEl.textContent = this.tickCount;
+                else console.error("Error: 'simTick' element not found in updateStats.");
+
+                const sugarConsumedCountEl = document.getElementById('sugarConsumedCount');
+                if (sugarConsumedCountEl) sugarConsumedCountEl.textContent = this.totalEventCounts.totalSugarConsumedValue;
+                else console.error("Error: 'sugarConsumedCount' element not found in updateStats.");
+
+                const totalEnergyFromSugarEl = document.getElementById('totalEnergyFromSugar');
+                if (totalEnergyFromSugarEl) totalEnergyFromSugarEl.textContent = this.totalEventCounts.totalEnergyFromSugarValue.toFixed(1);
+                else console.error("Error: 'totalEnergyFromSugar' element not found in updateStats.");
+                
+                const totalEnergyFromPhotosynthesisEl = document.getElementById('totalEnergyFromPhotosynthesis');
+                if (totalEnergyFromPhotosynthesisEl) totalEnergyFromPhotosynthesisEl.textContent = this.totalEventCounts.totalEnergyFromPhotosynthesisValue.toFixed(1);
+                else console.error("Error: 'totalEnergyFromPhotosynthesis' element not found in updateStats.");
+
+                const uniqueSpecies = new Set();
+                this.cells.forEach(cell => uniqueSpecies.add(cell.speciesSignature));
+                const currentUniqueSpeciesEl = document.getElementById('currentUniqueSpecies');
+                if (currentUniqueSpeciesEl) currentUniqueSpeciesEl.textContent = uniqueSpecies.size;
+                else console.error("Error: 'currentUniqueSpecies' element not found in updateStats.");
+
+                let totalEnergy = 0, totalBiomass = 0;
+                this.cells.forEach(cell => { totalEnergy += cell.energy; totalBiomass += cell.biomass; });
+                
+                const avgEnergyEl = document.getElementById('avgEnergy');
+                if (avgEnergyEl) avgEnergyEl.textContent = this.cells.length > 0 ? (totalEnergy / this.cells.length).toFixed(1) : "N/A";
+                else console.error("Error: 'avgEnergy' element not found in updateStats.");
+
+                const avgBiomassEl = document.getElementById('avgBiomass');
+                if (avgBiomassEl) avgBiomassEl.textContent = this.cells.length > 0 ? (totalBiomass / this.cells.length).toFixed(1) : "N/A";
+                else console.error("Error: 'avgBiomass' element not found in updateStats.");
+
+                const totalDivisionsEl = document.getElementById('totalDivisions');
+                if (totalDivisionsEl) totalDivisionsEl.textContent = this.totalEventCounts.divisions;
+                else console.error("Error: 'totalDivisions' element not found in updateStats.");
+
+                const totalDeathsEl = document.getElementById('totalDeaths');
+                if (totalDeathsEl) totalDeathsEl.textContent = this.totalEventCounts.deaths;
+                else console.error("Error: 'totalDeaths' element not found in updateStats.");
+
+                const totalAttacksEl = document.getElementById('totalAttacks');
+                if (totalAttacksEl) totalAttacksEl.textContent = this.totalEventCounts.attacks;
+                else console.error("Error: 'totalAttacks' element not found in updateStats.");
+
+                const totalSpeciationsEl = document.getElementById('totalSpeciations');
+                if (totalSpeciationsEl) totalSpeciationsEl.textContent = this.totalEventCounts.speciations; 
+                else console.error("Error: 'totalSpeciations' element not found in updateStats.");
+            }
+            setSpeed(speedValue) { this.simSpeed = parseInt(speedValue, 10); }
+        }
+
+        // --- Main ---
+        document.addEventListener('DOMContentLoaded', () => {
+            const simulation = new Simulation('simulationCanvas');
+            
+            const canvasWidthInput = document.getElementById('canvasWidthInput');
+            if(canvasWidthInput) canvasWidthInput.value = DEFAULTS.CANVAS_WIDTH;
+            else console.error("Error: canvasWidthInput element not found on DOMContentLoaded.");
+            
+            const canvasHeightInput = document.getElementById('canvasHeightInput');
+            if(canvasHeightInput) canvasHeightInput.value = DEFAULTS.CANVAS_HEIGHT;
+            else console.error("Error: canvasHeightInput element not found on DOMContentLoaded.");
+
+            const initialCellsInput = document.getElementById('initialCellsInput');
+            if(initialCellsInput) initialCellsInput.value = DEFAULTS.INITIAL_CELLS;
+            else console.error("Error: initialCellsInput element not found on DOMContentLoaded.");
+
+            const initialSugarInput = document.getElementById('initialSugarInput');
+            if(initialSugarInput) initialSugarInput.value = DEFAULTS.INITIAL_SUGAR_COUNT;
+            else console.error("Error: initialSugarInput element not found on DOMContentLoaded.");
+            
+            const sugarSpawnRateInput = document.getElementById('sugarSpawnRateInput');
+            if(sugarSpawnRateInput) sugarSpawnRateInput.value = DEFAULTS.SUGAR_SPAWN_RATE;
+            else console.error("Error: sugarSpawnRateInput element not found on DOMContentLoaded.");
+            
+            const sugarSpawnRateValue = document.getElementById('sugarSpawnRateValue');
+            if(sugarSpawnRateValue) sugarSpawnRateValue.textContent = DEFAULTS.SUGAR_SPAWN_RATE.toFixed(2);
+            else console.error("Error: sugarSpawnRateValue element not found on DOMContentLoaded.");
+
+            const lightZonePercentageInput = document.getElementById('lightZonePercentageInput');
+            if(lightZonePercentageInput) lightZonePercentageInput.value = DEFAULTS.LIGHT_ZONE_PERCENTAGE;
+            else console.error("Error: lightZonePercentageInput element not found on DOMContentLoaded.");
+
+            const lightZonePercentageValue = document.getElementById('lightZonePercentageValue');
+            if(lightZonePercentageValue) lightZonePercentageValue.textContent = DEFAULTS.LIGHT_ZONE_PERCENTAGE;
+            else console.error("Error: lightZonePercentageValue element not found on DOMContentLoaded.");
+
+            const shakeFrequencyInput = document.getElementById('shakeFrequencyInput');
+            if(shakeFrequencyInput) shakeFrequencyInput.value = DEFAULTS.SHAKE_FREQUENCY;
+            // else console.error("Error: shakeFrequencyInput element not found on DOMContentLoaded."); 
+
+            const shakeFrequencyValue = document.getElementById('shakeFrequencyValue');
+            if(shakeFrequencyValue) shakeFrequencyValue.textContent = DEFAULTS.SHAKE_FREQUENCY;
+            // else console.error("Error: shakeFrequencyValue element not found on DOMContentLoaded."); 
+            
+            const shakeMagnitudeInput = document.getElementById('shakeMagnitudeInput');
+            if(shakeMagnitudeInput) shakeMagnitudeInput.value = DEFAULTS.SHAKE_MAX_STRENGTH; 
+            // else console.error("Error: shakeMagnitudeInput element not found on DOMContentLoaded."); 
+
+            const shakeMagnitudeValue = document.getElementById('shakeMagnitudeValue');
+            if(shakeMagnitudeValue) shakeMagnitudeValue.textContent = DEFAULTS.SHAKE_MAX_STRENGTH; 
+            // else console.error("Error: shakeMagnitudeValue element not found on DOMContentLoaded."); 
+            
+            simulation.init(); 
+
+            document.getElementById('startButton').addEventListener('click', () => simulation.start());
+            document.getElementById('stopButton').addEventListener('click', () => simulation.stop());
+            document.getElementById('resetButton').addEventListener('click', () => simulation.reset()); 
+            document.getElementById('simSpeed').addEventListener('input', (e) => simulation.setSpeed(e.target.value));
+        });
+    </script>
+</body>
+</html>
