@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Enhanced Cell Simulation - Obstacles & Trait-Colors</title>
+    <title>Enhanced Cell Simulation - Temperature & Advanced Features</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { font-family: 'Inter', sans-serif; }
-        canvas { background-color: #374151; /* Tailwind gray-700 for better contrast */ border-radius: 0.5rem; image-rendering: pixelated; }
+        canvas { background-color: #374151; /* Tailwind gray-700 */ border-radius: 0.5rem; image-rendering: pixelated; }
         .info-panel { background-color: #ffffff; border-radius: 0.5rem; padding: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         .btn { padding: 0.5rem 1rem; border-radius: 0.375rem; font-weight: 500; transition: background-color 0.2s; cursor: pointer; }
         .btn-primary { background-color: #3b82f6; color: white; }
@@ -24,14 +24,16 @@
         .input-field, .select-field { width: 100%; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 0.375rem; box-sizing: border-box;}
         .details-list { list-style-type: disc; list-style-position: inside; margin-left: 0.5rem; }
         .details-list li { margin-bottom: 0.25rem;}
+        .checkbox-label { display: flex; align-items: center; text-sm text-gray-700; }
+        .checkbox-label input { margin-right: 0.5rem; }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800 p-4 md:p-8">
 
     <div class="container mx-auto max-w-7xl"> 
         <header class="mb-6 text-center">
-            <h1 class="text-3xl md:text-4xl font-bold text-gray-700">Cell Simulation: Obstacles & Evolving Trait Colors</h1>
-            <p class="text-gray-600 mt-1">Navigate new environments and adapt to survive!</p>
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-700">Cell Simulation: Temperature & Advanced Features</h1>
+            <p class="text-gray-600 mt-1">Evolve with temperature, obstacles, and complex genetics.</p>
         </header>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
@@ -80,12 +82,26 @@
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label for="sugarSpawnRateInput" class="input-label">Sugar Spawn Rate: <span id="sugarSpawnRateValue">0.15</span></label>
-                        <input type="range" id="sugarSpawnRateInput" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" min="0.01" max="0.5" step="0.01" value="0.15">
+                        <label for="sugarSpawnRateInput" class="input-label">Auto Sugar Spawn Rate: <span id="sugarSpawnRateValue">0.15</span></label>
+                        <input type="range" id="sugarSpawnRateInput" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" min="0.00" max="0.5" step="0.01" value="0.15">
+                        <label class="checkbox-label mt-1">
+                            <input type="checkbox" id="enableAutoSugarSpawn" checked> Enable Auto Sugar
+                        </label>
+                    </div>
+                     <div class="grid grid-cols-2 gap-2 mb-3">
+                        <div>
+                            <label for="oneTimeSugarAmountInput" class="input-label">One-Time Sugar Amount:</label>
+                            <input type="number" id="oneTimeSugarAmountInput" class="input-field" value="50" min="10" max="500">
+                        </div>
+                        <button id="oneTimeSugarDropButton" class="btn btn-secondary self-end">Drop Sugar Pile</button>
                     </div>
                      <div class="mb-3">
                         <label for="lightZonePercentageInput" class="input-label">Light Zone (% Top): <span id="lightZonePercentageValue">50</span>%</label>
                         <input type="range" id="lightZonePercentageInput" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" min="0" max="100" step="5" value="50">
+                    </div>
+                     <div class="mb-3">
+                        <label for="temperatureInput" class="input-label">Global Temperature (°C): <span id="temperatureValue">25</span>°C</label>
+                        <input type="range" id="temperatureInput" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" min="0" max="100" step="1" value="25">
                     </div>
                     <div class="mb-3">
                         <label for="shakeFrequencyInput" class="input-label">Shake Frequency (ticks, 0=off): <span id="shakeFrequencyValue">0</span></label>
@@ -144,22 +160,32 @@
             INITIAL_CELLS: 10, 
             INITIAL_SUGAR_COUNT: 150, 
             SUGAR_RADIUS: 2.5, 
-            SUGAR_ENERGY_VALUE: 40, 
+            SUGAR_ENERGY_VALUE: 30, // Lowered
             SUGAR_UPTAKE_EFFICIENCY_BONUS_FACTOR: 0.6, 
             SUGAR_SPAWN_RATE: 0.15,
+            ENABLE_AUTO_SUGAR_SPAWN: true,
             LIGHT_ZONE_PERCENTAGE: 50, 
             SHAKE_FREQUENCY: 0, 
             SHAKE_MAX_STRENGTH: 5, 
             DEFAULT_MAP_TYPE: 'Open',
+            DEFAULT_TEMPERATURE: 25, // °C
+            TEMP_OPTIMAL: 25,
+            TEMP_EFFECT_SENSITIVITY: 0.02, // How much activity changes per degree from optimal
+            TEMP_MAX_MUTATION_BONUS_AT_HIGH_TEMP: 2.5, // Mutation multiplier at 100°C (relative to optimal)
+            TEMP_MIN_ACTIVITY_AT_ZERO_TEMP: 0.1, // Activity factor at 0°C
+            TEMP_MAX_ACTIVITY_AT_HIGH_TEMP: 2.0,  // Max activity factor around 50-60°C
+            HEAT_RESISTANCE_EFFECTIVENESS: 5, // Each point of score effectively shifts optimal temp up by this many degrees for heat
+            COLD_RESISTANCE_EFFECTIVENESS: 5, // Each point of score effectively shifts optimal temp down by this many degrees for cold
+
 
             ENERGY_COST_PER_TICK: 0.015, 
             ENERGY_COST_PER_PROTEIN_EXPRESSION: 0.001, 
-            ENERGY_COST_MOVE: 0.1, 
+            ENERGY_COST_MOVE: 0.08, 
             ENERGY_COST_ATP_GEN: 0.15, 
-            ENERGY_COST_DIVISION: 25, // Increased
+            ENERGY_COST_DIVISION: 35, 
             GROWTH_ENERGY_THRESHOLD: 35, 
             DIVISION_SIZE_THRESHOLD_FACTOR: 1.8,
-            DIVISION_ENERGY_THRESHOLD: 85, // Adjusted: (2*30) + 25
+            DIVISION_ENERGY_THRESHOLD: 100, // (2*30) + 35 + buffer
             BASE_SUBSTITUTION_RATE: 0.005, 
             BASE_INSERTION_RATE: 0.0005,   
             BASE_DELETION_RATE: 0.0005,    
@@ -172,22 +198,22 @@
             MIN_GENE_LENGTH: 2,  
             INITIAL_GENES_PER_CELL: 4, 
             MAX_CELLS: 500, 
-            INITIAL_CELL_ENERGY: 150, 
+            INITIAL_CELL_ENERGY: 120, // Lowered
             ENERGY_COST_ATTACK: 8,
-            ENERGY_GAIN_FROM_PREY_FACTOR: 0.6,
+            ENERGY_GAIN_FROM_PREY_FACTOR: 0.5, 
             PREDATION_HIGH_ENERGY_THRESHOLD_FACTOR: 2.5, 
-            PREDATION_DIMINISHING_RETURN_FACTOR: 0.6, 
+            PREDATION_DIMINISHING_RETURN_FACTOR: 0.5, // Reduced
             LIGHT_VULNERABILITY_PREY_GAIN_BONUS: 0.1, 
-            SUGAR_GAIN_FROM_PREY_FACTOR: 0.4,  
-            BIOMASS_GAIN_FROM_PREY_FACTOR: 0.3, 
-            RESOURCE_RECYCLE_EFFICIENCY_DEATH: 0.4, 
+            SUGAR_GAIN_FROM_PREY_FACTOR: 0.3,  
+            BIOMASS_GAIN_FROM_PREY_FACTOR: 0.25, 
+            RESOURCE_RECYCLE_EFFICIENCY_DEATH: 0.35, 
             ATTACK_RANGE_BASE: 1, 
             ATTACK_RANGE_AGGRESSION_BONUS: 3, 
             MIN_ENERGY_TO_ATTACK: 20, 
             EVENT_COUNT_UPDATE_INTERVAL: 100,
-            TRAIT_TO_COLOR_SENSITIVITY: 180, // Scales functional scores (agg, photo, sugar) to RGB
-            MIN_FUNCTION_FOR_COLOR_EXPRESSION: 0.1, // Min total of (agg, photo, sugar_uptake) to not be grey
-            PHOTOSYNTHESIS_GAIN_FACTOR: 0.3, // Lowered
+            TRAIT_TO_COLOR_SENSITIVITY: 180, 
+            MIN_FUNCTION_FOR_COLOR_EXPRESSION: 0.1, 
+            PHOTOSYNTHESIS_GAIN_FACTOR: 0.20, // Lowered
             PHOTOSYNTHESIS_DARK_COST_FACTOR: 0.02, 
             PHOTOTAXIS_STRENGTH: 0.3,
             GENERAL_REPULSION_STRENGTH: 0.2,
@@ -197,29 +223,31 @@
             MAX_NEIGHBORS_BEFORE_PENALTY: 3,  
             PHOTOSYNTHESIS_CROWDING_REDUCTION: 0.1, 
             ENERGY_COST_CROWDING_FACTOR: 0.003,   
-            ATP_GENERATION_SUGAR_CONVERSION_RATE: 2.5, 
+            ATP_GENERATION_SUGAR_CONVERSION_RATE: 2.0, // Lowered
             METABOLIC_EFFICIENCY_SENSITIVITY: 0.4, 
-            OBSTACLE_COLOR: 'rgba(75, 85, 99, 0.9)', // Tailwind gray-600
-            OBSTACLE_LINE_WIDTH: 4,
+            OBSTACLE_COLOR: 'rgba(107, 114, 128, 0.95)', // Tailwind gray-500
+            OBSTACLE_LINE_WIDTH: 12, // Increased thickness
         };
 
         // --- Amino Acid Definitions ---
         const AMINO_ACIDS = {
             'S': { id: 'S', name: 'Structural', contributions: { stability: 0.25 } },
-            'F': { id: 'F', name: 'SugarProcessor', contributions: { sugar_uptake_efficiency: 0.4 } }, // Blue trait
+            'F': { id: 'F', name: 'SugarProcessor', contributions: { sugar_uptake_efficiency: 0.4 } }, 
             'E': { id: 'E', name: 'ATPGenerator', contributions: { atp_generation: 0.35 } },
             'L': { id: 'L', name: 'MembraneLinker', contributions: { membrane_attachment: 0.4 } },
             'M': { id: 'M', name: 'Motor', contributions: { motility: 0.3 } },
             'X': { id: 'X', name: 'SurfaceSensor', contributions: { sensing_sugar: 0.3, membrane_attachment: 0.1 } },
-            'A': { id: 'A', name: 'Aggressor', contributions: { aggression: 0.5 } }, // Red trait
+            'A': { id: 'A', name: 'Aggressor', contributions: { aggression: 0.5 } }, 
             'K': { id: 'K', name: 'KinMarker', contributions: { /* Species gene primary AA */ } }, 
             'Y': { id: 'Y', name: 'DNARepair', contributions: { mutation_resistance: 0.25 } }, 
-            'H': { id: 'H', name: 'HelioProtein', contributions: { photosynthesis_efficiency: 0.5 } }, // Green trait
+            'H': { id: 'H', name: 'HelioProtein', contributions: { photosynthesis_efficiency: 0.5 } }, 
             'V': { id: 'V', name: 'VisibleLightSeeker', contributions: { phototaxis_positive: 0.35 } }, 
             'N': { id: 'N', name: 'NyctoPhile', contributions: { phototaxis_negative: 0.35 } },
             'J': { id: 'J', name: 'Jettison', contributions: { general_repulsion: 0.3 } },   
             'C': { id: 'C', name: 'Cluster', contributions: { general_attraction: 0.25 } },
-            'T': { id: 'T', name: 'ThriftyMetabolism', contributions: { metabolic_efficiency: 0.2 } } 
+            'T': { id: 'T', name: 'ThriftyMetabolism', contributions: { metabolic_efficiency: 0.2 } },
+            'CR': {id: 'CR', name: 'ColdResist', contributions: { cold_resistance: 0.3 }}, // New
+            'HR': {id: 'HR', name: 'HeatResist', contributions: { heat_resistance: 0.3 }}  // New
         };
         const AA_TYPES = Object.keys(AMINO_ACIDS);
 
@@ -287,10 +315,10 @@
                     mutation_resistance: 0, photosynthesis_efficiency: 0,
                     phototaxis_positive: 0, phototaxis_negative: 0,
                     general_repulsion: 0, general_attraction: 0,
-                    metabolic_efficiency: 0 
+                    metabolic_efficiency: 0, cold_resistance: 0, heat_resistance: 0
                 };
                 this.aaSequence.forEach(aa => {
-                    if (AMINO_ACIDS[aa.id] && AMINO_ACIDS[aa.id].contributions) { // Check if contributions exist
+                    if (AMINO_ACIDS[aa.id] && AMINO_ACIDS[aa.id].contributions) { 
                         for (const funcName in AMINO_ACIDS[aa.id].contributions) {
                             if (potentialFunctions.hasOwnProperty(funcName)) {
                                 potentialFunctions[funcName] += AMINO_ACIDS[aa.id].contributions[funcName];
@@ -361,16 +389,31 @@
                 return new Genome(genes);
             }
 
-            replicate(mutationResistanceScore = 0, isInLightZone = false) { 
-                let effectiveSubRate = DEFAULTS.BASE_SUBSTITUTION_RATE * (1 - Math.min(0.9, mutationResistanceScore * DEFAULTS.MUTATION_RESISTANCE_FACTOR));
-                let effectiveInsRate = DEFAULTS.BASE_INSERTION_RATE * (1 - Math.min(0.9, mutationResistanceScore * DEFAULTS.MUTATION_RESISTANCE_FACTOR));
-                let effectiveDelRate = DEFAULTS.BASE_DELETION_RATE * (1 - Math.min(0.9, mutationResistanceScore * DEFAULTS.MUTATION_RESISTANCE_FACTOR));
+            replicate(mutationResistanceScore = 0, currentTemp = DEFAULTS.TEMP_OPTIMAL, isInLightZone = false) { 
+                let tempMutationFactor = 1.0;
+                if (currentTemp > DEFAULTS.TEMP_OPTIMAL) {
+                    tempMutationFactor = 1 + (DEFAULTS.TEMP_MAX_MUTATION_BONUS_AT_HIGH_TEMP - 1) * ((currentTemp - DEFAULTS.TEMP_OPTIMAL) / (100 - DEFAULTS.TEMP_OPTIMAL));
+                } else if (currentTemp < DEFAULTS.TEMP_OPTIMAL) {
+                    // Slightly reduce mutation in cold, but not too much
+                    tempMutationFactor = 1 - (1 - DEFAULTS.TEMP_MIN_ACTIVITY_AT_ZERO_TEMP) * ((DEFAULTS.TEMP_OPTIMAL - currentTemp) / DEFAULTS.TEMP_OPTIMAL) * 0.5; // 0.5 to make reduction less drastic
+                }
+                tempMutationFactor = Math.max(0.5, Math.min(tempMutationFactor, DEFAULTS.TEMP_MAX_MUTATION_BONUS_AT_HIGH_TEMP));
 
+
+                let effectiveSubRate = DEFAULTS.BASE_SUBSTITUTION_RATE * tempMutationFactor;
+                let effectiveInsRate = DEFAULTS.BASE_INSERTION_RATE * tempMutationFactor;
+                let effectiveDelRate = DEFAULTS.BASE_DELETION_RATE * tempMutationFactor;
+
+                effectiveSubRate *= (1 - Math.min(0.9, mutationResistanceScore * DEFAULTS.MUTATION_RESISTANCE_FACTOR));
+                effectiveInsRate *= (1 - Math.min(0.9, mutationResistanceScore * DEFAULTS.MUTATION_RESISTANCE_FACTOR));
+                effectiveDelRate *= (1 - Math.min(0.9, mutationResistanceScore * DEFAULTS.MUTATION_RESISTANCE_FACTOR));
+                
                 if (isInLightZone) {
                     effectiveSubRate *= DEFAULTS.LIGHT_MUTATION_MULTIPLIER;
                     effectiveInsRate *= DEFAULTS.LIGHT_MUTATION_MULTIPLIER;
                     effectiveDelRate *= DEFAULTS.LIGHT_MUTATION_MULTIPLIER;
                 }
+
 
                 let newGenesArray = this.genes.map(geneCodonArray => {
                     let baseString = geneCodonArray.slice(0, -1).join(''); 
@@ -467,7 +510,7 @@
                 const totalScoreForColor = rScore + gScore + bScore;
 
                 if (totalScoreForColor < DEFAULTS.MIN_FUNCTION_FOR_COLOR_EXPRESSION) {
-                    this.color = `rgb(128, 128, 128)`; // Grey
+                    this.color = `rgb(128, 128, 128)`; 
                 } else {
                     const rVal = Math.min(255, Math.floor(rScore * DEFAULTS.TRAIT_TO_COLOR_SENSITIVITY));
                     const gVal = Math.min(255, Math.floor(gScore * DEFAULTS.TRAIT_TO_COLOR_SENSITIVITY));
@@ -489,22 +532,19 @@
                 const scores = {
                     stability: 0, sugar_uptake_efficiency: 0, atp_generation: 0,
                     membrane_attachment: 0, motility: 0, sensing_sugar: 0, aggression: 0,
-                    // red_pigment_production, etc. REMOVED as direct scores
                     mutation_resistance: 0, photosynthesis_efficiency: 0,
                     phototaxis_positive: 0, phototaxis_negative: 0,
                     general_repulsion: 0, general_attraction: 0,
-                    metabolic_efficiency: 0 
+                    metabolic_efficiency: 0, cold_resistance: 0, heat_resistance: 0
                 };
                 for (let i = 0; i < this.proteins.length; i++) { 
                     const protein = this.proteins[i];
-                    // Iterate through the functions derived by THIS protein instance
                     for (const funcName in protein.functions) {
                         if (scores.hasOwnProperty(funcName)) {
                              scores[funcName] += protein.functions[funcName];
                         }
                     }
                 }
-                // Pigment-trait links are now implicitly handled by A, H, F AAs contributing to these scores
                 return scores;
             }
 
@@ -513,12 +553,37 @@
                 this.timeSinceLastSugar++;
                 this.timeSinceLastAttackAttempt++;
                 
+                // Calculate temperature effect
+                let effectiveTemperature = this.environment.currentTemperature;
+                if (effectiveTemperature < DEFAULTS.TEMP_OPTIMAL) {
+                    effectiveTemperature += (this.functionalScores.cold_resistance || 0) * DEFAULTS.COLD_RESISTANCE_EFFECTIVENESS;
+                    effectiveTemperature = Math.min(DEFAULTS.TEMP_OPTIMAL, effectiveTemperature);
+                } else if (effectiveTemperature > DEFAULTS.TEMP_OPTIMAL) {
+                    effectiveTemperature -= (this.functionalScores.heat_resistance || 0) * DEFAULTS.HEAT_RESISTANCE_EFFECTIVENESS;
+                    effectiveTemperature = Math.max(DEFAULTS.TEMP_OPTIMAL, effectiveTemperature);
+                }
+
+                let activityFactor = 1.0;
+                if (effectiveTemperature <= 0) {
+                    activityFactor = DEFAULTS.TEMP_MIN_ACTIVITY_AT_ZERO_TEMP;
+                } else if (effectiveTemperature >= 100) {
+                    this.energy = -1; // Instant death at 100C effective
+                } else {
+                    const deviation = effectiveTemperature - DEFAULTS.TEMP_OPTIMAL;
+                    activityFactor = 1 + deviation * DEFAULTS.TEMP_EFFECT_SENSITIVITY;
+                    activityFactor = Math.max(DEFAULTS.TEMP_MIN_ACTIVITY_AT_ZERO_TEMP, Math.min(activityFactor, DEFAULTS.TEMP_MAX_ACTIVITY_AT_HIGH_TEMP));
+                }
+
+
                 let baseRate = DEFAULTS.ENERGY_COST_PER_TICK;
                 if (this.functionalScores.metabolic_efficiency > 0) {
                     baseRate *= (1 - Math.min(0.8, this.functionalScores.metabolic_efficiency * DEFAULTS.METABOLIC_EFFICIENCY_SENSITIVITY));
                 }
                 let baseMetabolicCost = baseRate * (1 + (this.radius - DEFAULTS.CELL_MIN_RADIUS) / DEFAULTS.CELL_MIN_RADIUS);
+                baseMetabolicCost *= activityFactor; // Apply temperature effect
+
                 let proteinExpressionCost = this.proteins.length * DEFAULTS.ENERGY_COST_PER_PROTEIN_EXPRESSION; 
+                proteinExpressionCost *= activityFactor; // Apply temperature effect
                 
                 let neighborCount = 0;
                 const interferenceRadius = this.radius * DEFAULTS.INTERFERENCE_RADIUS_FACTOR;
@@ -531,13 +596,13 @@
 
                 let currentPhotosynthesisGainFactor = 0;
                 if (this.functionalScores.photosynthesis_efficiency > 0) {
-                    currentPhotosynthesisGainFactor = this.functionalScores.photosynthesis_efficiency * DEFAULTS.PHOTOSYNTHESIS_GAIN_FACTOR;
+                    currentPhotosynthesisGainFactor = (this.functionalScores.photosynthesis_efficiency * DEFAULTS.PHOTOSYNTHESIS_GAIN_FACTOR) * activityFactor;
                 }
 
                 let crowdingPenaltyCost = 0;
                 if (neighborCount > DEFAULTS.MAX_NEIGHBORS_BEFORE_PENALTY) {
                     const excessNeighbors = neighborCount - DEFAULTS.MAX_NEIGHBORS_BEFORE_PENALTY;
-                    crowdingPenaltyCost = excessNeighbors * DEFAULTS.ENERGY_COST_CROWDING_FACTOR;
+                    crowdingPenaltyCost = excessNeighbors * DEFAULTS.ENERGY_COST_CROWDING_FACTOR * activityFactor;
                     if (currentPhotosynthesisGainFactor > 0) {
                         currentPhotosynthesisGainFactor *= Math.max(0, 1 - excessNeighbors * DEFAULTS.PHOTOSYNTHESIS_CROWDING_REDUCTION);
                     }
@@ -557,7 +622,7 @@
                     }
                 } else { 
                     if (this.functionalScores.photosynthesis_efficiency > 0) {
-                        const darkCost = this.functionalScores.photosynthesis_efficiency * DEFAULTS.PHOTOSYNTHESIS_DARK_COST_FACTOR;
+                        const darkCost = this.functionalScores.photosynthesis_efficiency * DEFAULTS.PHOTOSYNTHESIS_DARK_COST_FACTOR * activityFactor;
                         this.energy -= darkCost;
                     }
                 }
@@ -582,16 +647,16 @@
                 }
 
                 if (this.functionalScores.motility > 0) {
-                    this.move(this.functionalScores.motility); 
-                    this.energy -= DEFAULTS.ENERGY_COST_MOVE * this.functionalScores.motility;
+                    this.move(this.functionalScores.motility, activityFactor); 
+                    this.energy -= DEFAULTS.ENERGY_COST_MOVE * this.functionalScores.motility * activityFactor;
                 }
 
                 if (this.functionalScores.atp_generation > 0 && this.internalSugar > 0) {
-                    this.generateATP(this.functionalScores.atp_generation);
+                    this.generateATP(this.functionalScores.atp_generation, activityFactor);
                 }
 
                 if (this.energy > DEFAULTS.GROWTH_ENERGY_THRESHOLD && this.radius < DEFAULTS.CELL_MAX_RADIUS) {
-                    const growthAmount = 0.05 * (this.energy / DEFAULTS.GROWTH_ENERGY_THRESHOLD);
+                    const growthAmount = 0.05 * (this.energy / DEFAULTS.GROWTH_ENERGY_THRESHOLD) * activityFactor;
                     this.radius += growthAmount;
                     this.energy -= growthAmount * 10; 
                     this.radius = Math.min(this.radius, DEFAULTS.CELL_MAX_RADIUS);
@@ -599,7 +664,7 @@
 
                 const divisionSizeThreshold = DEFAULTS.CELL_MIN_RADIUS * DEFAULTS.DIVISION_SIZE_THRESHOLD_FACTOR;
                 if (this.radius >= divisionSizeThreshold && this.energy > DEFAULTS.DIVISION_ENERGY_THRESHOLD &&
-                    (this.energy - DEFAULTS.ENERGY_COST_DIVISION) / 2 > DEFAULTS.ENERGY_COST_PER_TICK * 100) { 
+                    (this.energy - DEFAULTS.ENERGY_COST_DIVISION * activityFactor) / 2 > (DEFAULTS.ENERGY_COST_PER_TICK * activityFactor) * 100) { 
                     this.divide(); 
                 }
 
@@ -674,8 +739,8 @@
                 } else { this.targetCell = null; }
             }
 
-            move(motilityScore) { 
-                const moveSpeed = motilityScore * 0.6 + 0.1; 
+            move(motilityScore, activityFactor = 1) { 
+                const moveSpeed = motilityScore * 0.6 * activityFactor + 0.1; // Activity factor affects speed
                 let dx = 0, dy = 0;
                 let targetX = this.x, targetY = this.y; 
 
@@ -716,10 +781,10 @@
                 const lightZoneBoundary = this.environment.canvasHeight * (this.environment.lightZonePercentage / 100);
                 let phototaxisDY = 0;
                 if (this.functionalScores.phototaxis_positive > 0) {
-                    phototaxisDY -= this.functionalScores.phototaxis_positive * DEFAULTS.PHOTOTAXIS_STRENGTH; 
+                    phototaxisDY -= this.functionalScores.phototaxis_positive * DEFAULTS.PHOTOTAXIS_STRENGTH * activityFactor; 
                 }
                 if (this.functionalScores.phototaxis_negative > 0) {
-                    phototaxisDY += this.functionalScores.phototaxis_negative * DEFAULTS.PHOTOTAXIS_STRENGTH; 
+                    phototaxisDY += this.functionalScores.phototaxis_negative * DEFAULTS.PHOTOTAXIS_STRENGTH * activityFactor; 
                 }
 
                 const angleToTarget = Math.atan2(targetY - this.y, targetX - this.x);
@@ -735,23 +800,18 @@
                 let newX = this.x + dx;
                 let newY = this.y + dy;
 
-                // Obstacle collision
                 let collision = this.environment.checkCollision(newX, newY, this.radius);
                 if (collision) {
-                    // Try moving only in X
                     let collisionX = this.environment.checkCollision(newX, this.y, this.radius);
                     if (!collisionX) {
                         this.x = newX;
-                        // Y remains, but still apply boundary check
                         this.y = Math.max(this.radius, Math.min(this.y, this.environment.canvasHeight - this.radius));
                     } else {
-                        // Try moving only in Y
                         let collisionY = this.environment.checkCollision(this.x, newY, this.radius);
                         if (!collisionY) {
                             this.y = newY;
-                            // X remains, but still apply boundary check
                             this.x = Math.max(this.radius, Math.min(this.x, this.environment.canvasWidth - this.radius));
-                        } // else, no move if both axes are blocked by an obstacle
+                        } 
                     }
                 } else {
                     this.x = newX;
@@ -774,12 +834,12 @@
                 }
             }
 
-            generateATP(atpGenScore) { 
-                const sugarToConvert = Math.min(this.internalSugar, atpGenScore * 2.5 + 0.5); 
+            generateATP(atpGenScore, activityFactor = 1) { 
+                const sugarToConvert = Math.min(this.internalSugar, atpGenScore * 2.5 + 0.5) * activityFactor; 
                 if (sugarToConvert > 0) {
                     this.internalSugar -= sugarToConvert;
                     const energyFromATP = sugarToConvert * DEFAULTS.ATP_GENERATION_SUGAR_CONVERSION_RATE;
-                    const costOfATP = DEFAULTS.ENERGY_COST_ATP_GEN * atpGenScore;
+                    const costOfATP = DEFAULTS.ENERGY_COST_ATP_GEN * atpGenScore * activityFactor;
                     const netGain = energyFromATP - costOfATP;
                     this.energy += netGain;
                     this.environment.totalEventCounts.totalEnergyFromSugarValue += netGain;
@@ -790,7 +850,7 @@
                 this.energy -= DEFAULTS.ENERGY_COST_DIVISION; 
                 this.environment.currentIntervalEventCounts.divisions++; 
 
-                const childGenome = this.genome.replicate(this.functionalScores.mutation_resistance || 0, this.isInLightZone); 
+                const childGenome = this.genome.replicate(this.functionalScores.mutation_resistance || 0, this.environment.currentTemperature, this.isInLightZone); 
                 const childEnergy = this.energy / 2;
                 this.energy /= 2; 
                 const childInternalSugar = this.internalSugar / 2; 
@@ -805,7 +865,6 @@
                 let childX = this.x + Math.cos(angle) * offsetDist;
                 let childY = this.y + Math.sin(angle) * offsetDist;
 
-                // Ensure child spawns in a valid location (not inside an obstacle)
                 let attempts = 0;
                 while (this.environment.checkCollision(childX, childY, DEFAULTS.CELL_MIN_RADIUS) && attempts < 20) {
                     const newAngle = Math.random() * 2 * Math.PI;
@@ -813,7 +872,7 @@
                     childY = this.y + Math.sin(newAngle) * offsetDist;
                     attempts++;
                 }
-                if (attempts >= 20) { // Could not find a spot, place near parent carefully
+                if (attempts >= 20) { 
                     childX = this.x + (Math.random() < 0.5 ? -offsetDist : offsetDist) * 0.5;
                     childY = this.y + (Math.random() < 0.5 ? -offsetDist : offsetDist) * 0.5;
                 }
@@ -907,7 +966,7 @@
                     }
                 }
                 info += `</ul>`;
-                info += `<p class="mt-1"><b>Genome (${this.genome.genes.length} genes):</b></p><div class="p-1 bg-gray-500 rounded text-xs overflow-auto max-h-20">${this.genome.getDescription()}</div>`;
+                info += `<p class="mt-1"><b>Genome (${this.genome.genes.length} genes):</b></p><div class="p-1 bg-gray-100 text-gray-700 rounded text-xs overflow-auto max-h-20">${this.genome.getDescription()}</div>`;
                 info += `<p class="mt-1"><b>Proteins (${this.proteins.length}):</b></p><ul class="details-list text-xs overflow-auto max-h-28">`;
                 this.proteins.forEach(p => info += `<li>${p.getDescription()}</li>`);
                 info += `</ul>`;
@@ -940,8 +999,13 @@
                 this.mapTypeInput = document.getElementById('mapTypeInput'); 
                 this.sugarSpawnRateInput = document.getElementById('sugarSpawnRateInput');
                 this.sugarSpawnRateValueDisplay = document.getElementById('sugarSpawnRateValue');
+                this.enableAutoSugarSpawnInput = document.getElementById('enableAutoSugarSpawn');
+                this.oneTimeSugarAmountInput = document.getElementById('oneTimeSugarAmountInput');
+                this.oneTimeSugarDropButton = document.getElementById('oneTimeSugarDropButton');
                 this.lightZonePercentageInput = document.getElementById('lightZonePercentageInput');
                 this.lightZonePercentageValueDisplay = document.getElementById('lightZonePercentageValue');
+                this.temperatureInput = document.getElementById('temperatureInput');
+                this.temperatureValueDisplay = document.getElementById('temperatureValue');
                 this.shakeFrequencyInput = document.getElementById('shakeFrequencyInput'); 
                 this.shakeFrequencyValueDisplay = document.getElementById('shakeFrequencyValue'); 
                 this.shakeMagnitudeInput = document.getElementById('shakeMagnitudeInput');  
@@ -953,7 +1017,9 @@
                 this.canvasWidth = DEFAULTS.CANVAS_WIDTH;
                 this.canvasHeight = DEFAULTS.CANVAS_HEIGHT;
                 this.sugarSpawnRate = DEFAULTS.SUGAR_SPAWN_RATE;
+                this.enableAutoSugarSpawn = DEFAULTS.ENABLE_AUTO_SUGAR_SPAWN;
                 this.lightZonePercentage = DEFAULTS.LIGHT_ZONE_PERCENTAGE;
+                this.currentTemperature = DEFAULTS.DEFAULT_TEMPERATURE;
                 this.shakeFrequency = DEFAULTS.SHAKE_FREQUENCY; 
                 this.shakeMaxStrength = DEFAULTS.SHAKE_MAX_STRENGTH; 
 
@@ -976,6 +1042,20 @@
                         if(this.sugarSpawnRateValueDisplay) this.sugarSpawnRateValueDisplay.textContent = this.sugarSpawnRate.toFixed(2);
                     });
                 } else { console.error("Error: sugarSpawnRateInput element not found!"); }
+                
+                if (this.enableAutoSugarSpawnInput) {
+                    this.enableAutoSugarSpawnInput.addEventListener('change', (e) => {
+                        this.enableAutoSugarSpawn = e.target.checked;
+                    });
+                } else { console.error("Error: enableAutoSugarSpawnInput element not found!"); }
+
+                if (this.oneTimeSugarDropButton) {
+                    this.oneTimeSugarDropButton.addEventListener('click', () => {
+                        const amount = parseInt(this.oneTimeSugarAmountInput.value) || 50;
+                        this.applyManualSugarDrop(amount);
+                    });
+                } else { console.error("Error: oneTimeSugarDropButton element not found!"); }
+
 
                 if (this.lightZonePercentageInput) {
                     this.lightZonePercentageInput.addEventListener('input', (e) => {
@@ -984,6 +1064,14 @@
                         this.draw(); 
                     });
                 } else { console.error("Error: lightZonePercentageInput element not found!"); }
+
+                if (this.temperatureInput) {
+                    this.temperatureInput.addEventListener('input', (e) => {
+                        this.currentTemperature = parseInt(e.target.value);
+                        if(this.temperatureValueDisplay) this.temperatureValueDisplay.textContent = this.currentTemperature;
+                        // No immediate redraw needed, effect will be in next step
+                    });
+                } else { console.error("Error: temperatureInput element not found!"); }
                 
                 if (this.shakeFrequencyInput) { 
                      this.shakeFrequencyInput.addEventListener('input', (e) => {
@@ -1021,9 +1109,17 @@
                 this.canvasWidth = parseInt(this.canvasWidthInput.value) || DEFAULTS.CANVAS_WIDTH;
                 this.canvasHeight = parseInt(this.canvasHeightInput.value) || DEFAULTS.CANVAS_HEIGHT;
                 this.sugarSpawnRate = parseFloat(this.sugarSpawnRateInput.value) || DEFAULTS.SUGAR_SPAWN_RATE;
+                if(this.enableAutoSugarSpawnInput) this.enableAutoSugarSpawn = this.enableAutoSugarSpawnInput.checked;
+                else this.enableAutoSugarSpawn = DEFAULTS.ENABLE_AUTO_SUGAR_SPAWN;
+
+
                 this.lightZonePercentage = parseInt(this.lightZonePercentageInput.value); 
                 if (isNaN(this.lightZonePercentage)) this.lightZonePercentage = DEFAULTS.LIGHT_ZONE_PERCENTAGE;
                 
+                if(this.temperatureInput) this.currentTemperature = parseInt(this.temperatureInput.value);
+                else this.currentTemperature = DEFAULTS.DEFAULT_TEMPERATURE;
+                if (isNaN(this.currentTemperature)) this.currentTemperature = DEFAULTS.DEFAULT_TEMPERATURE;
+
                 if (this.shakeFrequencyInput) this.shakeFrequency = parseInt(this.shakeFrequencyInput.value);
                 else this.shakeFrequency = DEFAULTS.SHAKE_FREQUENCY;
                 if (isNaN(this.shakeFrequency)) this.shakeFrequency = DEFAULTS.SHAKE_FREQUENCY;
@@ -1043,8 +1139,11 @@
                 if(this.canvasHeightInput) this.canvasHeightInput.value = this.canvasHeight;
                 if(this.sugarSpawnRateInput) this.sugarSpawnRateInput.value = this.sugarSpawnRate;
                 if(this.sugarSpawnRateValueDisplay) this.sugarSpawnRateValueDisplay.textContent = this.sugarSpawnRate.toFixed(2);
+                if(this.enableAutoSugarSpawnInput) this.enableAutoSugarSpawnInput.checked = this.enableAutoSugarSpawn;
                 if(this.lightZonePercentageInput) this.lightZonePercentageInput.value = this.lightZonePercentage;
                 if(this.lightZonePercentageValueDisplay) this.lightZonePercentageValueDisplay.textContent = this.lightZonePercentage;
+                if(this.temperatureInput) this.temperatureInput.value = this.currentTemperature;
+                if(this.temperatureValueDisplay) this.temperatureValueDisplay.textContent = this.currentTemperature;
                 
                 if(this.shakeFrequencyInput) this.shakeFrequencyInput.value = this.shakeFrequency;
                 if(this.shakeFrequencyValueDisplay) this.shakeFrequencyValueDisplay.textContent = this.shakeFrequency;
@@ -1062,6 +1161,29 @@
                 });
                 if (!this.isRunning) this.draw(); 
             }
+            
+            applyManualSugarDrop(amount) {
+                const numPellets = Math.ceil(amount / (DEFAULTS.SUGAR_ENERGY_VALUE / 2)); 
+                const pileRadius = 30; 
+                
+                let attempts = 0;
+                let pileX, pileY;
+                do {
+                    pileX = randomFloat(pileRadius, this.canvasWidth - pileRadius);
+                    pileY = randomFloat(pileRadius, this.canvasHeight - pileRadius);
+                    attempts++;
+                } while (this.checkCollision(pileX, pileY, pileRadius) && attempts < 50); 
+
+                for (let i = 0; i < numPellets; i++) {
+                    const sx = Math.max(DEFAULTS.SUGAR_RADIUS, Math.min(pileX + randomFloat(-pileRadius, pileRadius), this.canvasWidth - DEFAULTS.SUGAR_RADIUS));
+                    const sy = Math.max(DEFAULTS.SUGAR_RADIUS, Math.min(pileY + randomFloat(-pileRadius, pileRadius), this.canvasHeight - DEFAULTS.SUGAR_RADIUS));
+                    if (!this.checkCollision(sx, sy, DEFAULTS.SUGAR_RADIUS)) {
+                        this.sugars.push({ x: sx, y: sy, radius: DEFAULTS.SUGAR_RADIUS, id: `MS-${Math.random().toString(36).substr(2,5)}` });
+                    }
+                }
+                if (!this.isRunning) this.draw();
+            }
+
 
             defineObstacles() {
                 this.obstacles = [];
@@ -1069,7 +1191,7 @@
                 const h = this.canvasHeight;
 
                 if (this.mapType === 'VerticalBar') {
-                    const barWidth = Math.max(20, w * 0.025); // Ensure bar is visible
+                    const barWidth = Math.max(20, w * 0.025); 
                     const gapSize = Math.max(30, h * 0.1); 
                     this.obstacles.push({ type: 'rect', x: w/2 - barWidth/2, y: gapSize, width: barWidth, height: h - 2 * gapSize, id: 'obs-bar-main' });
                 } else if (this.mapType === 'CircularObstacles') {
@@ -1078,12 +1200,26 @@
                     const minRadius = Math.min(w,h) / 8;
                     for (let i = 0; i < numCircles; i++) {
                         const r = randomFloat(minRadius, maxRadius);
-                        const x = randomFloat(r + 20, w - r - 20); // Add padding from edges
-                        const y = randomFloat(r + 20, h - r - 20);
-                        const openingAngleSize = Math.PI / 3; // 60 degree opening
-                        const wallStartAngle = randomFloat(0, Math.PI * 2);
-                        const wallEndAngle = (wallStartAngle + (Math.PI * 2 - openingAngleSize)) % (2 * Math.PI) ;
-                        this.obstacles.push({ type: 'arc', x, y, radius: r, wallStartAngle, wallEndAngle, openingAngleSize, isWall: true, id: `obs-circle-${i}` });
+                        let obsX, obsY, attempts = 0;
+                        do {
+                            obsX = randomFloat(r + 20, w - r - 20); 
+                            obsY = randomFloat(r + 20, h - r - 20);
+                            attempts++;
+                            let overlaps = false;
+                            for(const existingObs of this.obstacles){
+                                if(existingObs.type === 'arc' && distance({x: obsX, y: obsY}, existingObs) < r + existingObs.radius + 20) {
+                                    overlaps = true;
+                                    break;
+                                }
+                            }
+                            if(!overlaps) break;
+                        } while (attempts < 50);
+
+
+                        const openingAngleSize = Math.PI / 2.5; 
+                        const wallStartAngle = randomFloat(0, Math.PI * 2); 
+                        const wallEndAngle = (wallStartAngle + (Math.PI * 2 - openingAngleSize) + 2 * Math.PI) % (2 * Math.PI) ; 
+                        this.obstacles.push({ type: 'arc', x: obsX, y: obsY, radius: r, wallStartAngle, wallEndAngle, openingAngleSize, isWall: true, id: `obs-circle-${i}` });
                     }
                 }
             }
@@ -1104,24 +1240,18 @@
                             let angleCellToArcCenter = Math.atan2(dyCellToArcCenter, dxCellToArcCenter);
                             if (angleCellToArcCenter < 0) angleCellToArcCenter += 2 * Math.PI; 
             
-                            let wallStart = obs.wallStartAngle;
-                            let wallEnd = obs.wallEndAngle; // This is the end of the wall segment
+                            let start = obs.wallStartAngle;
+                            let end = obs.wallEndAngle;
             
-                            // The opening is from wallEnd to wallStart (going counter-clockwise for the opening)
-                            let openingStart = wallEnd;
-                            let openingEnd = (wallStart + 2 * Math.PI) % (2*Math.PI); // Ensure wallStart is effectively "after" wallEnd for opening check
+                            start = (start % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+                            end = (end % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+                            angleCellToArcCenter = (angleCellToArcCenter % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
 
-                            let isInOpening = false;
-                            if (openingStart <= openingEnd) { // Normal case for opening
-                                if (angleCellToArcCenter >= openingStart && angleCellToArcCenter <= openingEnd) {
-                                    isInOpening = true;
-                                }
-                            } else { // Opening crosses the 0-radian line
-                                if (angleCellToArcCenter >= openingStart || angleCellToArcCenter <= openingEnd) {
-                                    isInOpening = true;
-                                }
+                            if (start <= end) { 
+                                if (angleCellToArcCenter >= start && angleCellToArcCenter <= end) return true;
+                            } else { 
+                                if (angleCellToArcCenter >= start || angleCellToArcCenter <= end) return true;
                             }
-                            if (!isInOpening) return true; // Collides if at wall radius AND not in opening
                         }
                     }
                 }
@@ -1256,7 +1386,7 @@
                     if(this.cells[i]) this.cells[i].update();
                 }
 
-                if (Math.random() < this.sugarSpawnRate && this.sugars.length < (parseInt(this.initialSugarInput.value) || DEFAULTS.INITIAL_SUGAR_COUNT) * 1.5) { 
+                if (this.enableAutoSugarSpawn && Math.random() < this.sugarSpawnRate && this.sugars.length < (parseInt(this.initialSugarInput.value) || DEFAULTS.INITIAL_SUGAR_COUNT) * 1.5) { 
                     this.spawnSugar();
                 }
 
@@ -1279,7 +1409,7 @@
 
                 const lightZoneHeight = this.canvasHeight * (this.lightZonePercentage / 100);
                 if (lightZoneHeight > 0) {
-                    this.ctx.fillStyle = 'rgba(255, 255, 230, 0.25)'; // Brighter light yellow
+                    this.ctx.fillStyle = 'rgba(255, 255, 240, 0.3)'; 
                     this.ctx.fillRect(0, 0, this.canvasWidth, lightZoneHeight);
                 }
                 
